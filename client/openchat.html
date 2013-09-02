@@ -1,0 +1,119 @@
+<html>
+	<head>
+        <title>OpenChat</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<!-- map stuff -->
+        <link rel="stylesheet" href="css/leaflet.css" />
+		<script src="js/raphael-min.js"></script>
+		<script src="js/leaflet-src.js"></script>
+		<script src="js/rlayer-src.js"></script>
+        <link rel="stylesheet" href="css/MarkerCluster.css" />
+        <link rel="stylesheet" href="css/MarkerCluster.Default.css" />
+        <script src="js/leaflet.markercluster-src.js"></script>
+        <!-- editor stuff -->
+        <script type="text/javascript" src="http://feather.aviary.com/js/feather.js"></script>
+        <!-- exif stuff -->
+        <script src="http://www.nihilogic.dk/labs/exif/exif.js"></script>
+        <script src="http://www.nihilogic.dk/labs/binaryajax/binaryajax.js"></script>
+        <!-- jQuery stuff -->
+		<link rel="stylesheet" href="http://code.jquery.com/ui/1.10.1/themes/base/jquery-ui.css" />
+        <script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+		<script src="http://code.jquery.com/ui/1.10.1/jquery-ui.js"></script>            
+  		<script src="http://cdn.binaryjs.com/0/binary.js"></script>
+		<script src="js/jquery.ui.touch-punch.min.js"></script>
+		<script src="openchat.js"></script>
+        <style>
+            body {
+                padding: 0;
+                margin: 0;
+            }
+            html, body {
+                height: 100%;
+            }            
+        	button.text { margin-bottom:12px; width:95%; padding: .4em; }
+           	//label, input { display:block; }
+        	input.text { margin-bottom:12px; width:95%; padding: .4em; }
+        	fieldset { padding:0; border:0; margin-top:10px; }      
+        	.validateTips { border: 1px solid transparent; padding: 0.2em; }   	
+
+	    	.bgTransparency { 
+	    		background:rgba(255, 255, 255, 0.5); 
+	    	}
+			.dialogTextInput
+        	{
+        		width: 50%;
+            	margin-top: 15px;
+            	margin-left: 15px;
+        	}	    	
+			hr
+			{
+			    background-color: #BDBDBD;
+			    border: 0 none;
+			    color: #BDBDBD;
+			    height: 1px;
+			}        	
+            </style>
+	</head>
+	<body>
+		<script type="text/javascript" src="//api.filepicker.io/v1/filepicker.js"></script>
+	    <div id="toolbar" class="ui-widget-header ui-corner-all">
+		  <button id="btnLocalImages" type="file">Open Images</button>
+		  <div style='height: 0px;width: 0px;display: none;'><input id="selectFiles" type="file" multiple /></div>
+		  <button id="btnImportImages">Import Images</button>
+		  <button id="btnImportBlog">Import Note/Blog</button>
+		  <button id="btnChat">Chat</button>
+		  <button id="btnSettings">Settings</button>
+		  <button id="btnHelp">Help</button>		 
+		  <button id="btnLogin">Login</button>		 
+		  <button id="btnLogout">Logout</button>		 
+		  <span style="font-family:Arial, Helvetica, sans-serif" id="txtLoginName">Not Logged In</span>
+		</div>
+		 
+ 		<div id="map" style="height: 90%"></div>
+	    <div id="dialog-login" title="Join the Aventure!">
+			<p class="validateTips"></p>
+	        <form>
+	            <fieldset>
+	                <label for="email">Email:</label>
+	                <input type="text" id="email" value="" class="text ui-widget-content ui-corner-all" />
+	                <hr>
+	                <label for="password">Password:</label>
+	                <input type="password" id="password" value="" class="text ui-widget-content ui-corner-all" />
+	            </fieldset>
+	        </form>
+	    </div>
+	    <div id="dialog-chat" title="Chat">
+	        <form>
+	            <fieldset>
+					  <table id="chatTable" width="100%">
+					    <tbody>
+					    </tbody>
+					  </table>
+	            </fieldset>
+	        </form>
+	    </div>		
+	    <div id="dialog-settings" title="Settings">
+			<p class="validateTips"></p>
+	        <form>
+	            <fieldset>
+	                <img id="imgUserImage" src='https://s3.amazonaws.com/zeitgeistmedia/iconUser.png' style='width:90px; height:100px' />
+	                <input id="userImageNew" type="file" />
+	                <hr>
+	                <label for="userName">Change Your User Name:</label>
+	                <input type="text" id="userName" value="" class="text ui-widget-content ui-corner-all" />
+	                <hr>
+	                <label for="userEmail">Change Your Email:</label>
+	                <input type="text" id="userEmail" value="" class="text ui-widget-content ui-corner-all" />
+					<hr>
+					<label for="chatWindowTransparency">Windows Transparent</label>
+					<input type="range" id="chatWindowTransparency" min="0" step=".5" max="1" value=".5" style="width: 150px;"/>Opaque
+					<!--
+					<hr>
+					<input type="checkbox" id="emailNotifications"/>
+	                <label for="emailNotifications">Receive Email Notifications.</label>
+	                -->
+	            </fieldset>
+	        </form>
+	    </div>		
+	</body>
+</html>
