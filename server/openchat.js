@@ -469,10 +469,13 @@ wsServer.on('request', function (request) {
 	            	// look up user id and password
 	                var userId = json.data._id;             
 	                // try to find the user in the database
-					db.users.findOne({_id: ObjectId(userId)}, function(err, user) {
+					db.users.findOne({connectionId: connectionId}, function(err, user) {
 						if( err || !user) {			// err, user not found
 							console.log("getUserSettings, User with id " + userId + " not found");
 						}
+                                            else if (user._id != userId) {
+                                                console.log("getUserSettings, hacker alert! userId spoofed");
+                                            }
 						else {							
 							console.log("getUserSettings, User with id " + userId + " found");	            	
 			            	// return all the user settings
@@ -481,13 +484,16 @@ wsServer.on('request', function (request) {
 	            	});
 	            	break;
 	            case 'setUserSettings':
-	            	var argQuery = {_id: ObjectId(json.data._id), pw: json.data.pw};
+	        var argQuery = {connectionId: connectionId, pw: json.data.pw};
 	            	var argUpdate = { $set: { email: json.data.email.toLowerCase(), name: json.data.name, pw: json.data.pw, userImageUrl: json.data.userImageUrl, windowTransparency: json.data.windowTransparency  } };
 	            	
 					db.users.findAndModify( { query: argQuery, update: argUpdate, new: true, upsert: false}, function(err, user) {
 						if( err || !user) {			// err, user not found
 							console.log("setUserSettings findAndModify, User not found");
 						}
+                                            else if (user._id != json.data._id) {
+                                                console.log("setUserSettings, hacker alert! userId spoofed");
+                                            }
 						else {							
 							console.log("setUserSettings findAndModify, User with id " + user._id + " and PW: " + user.pw +  " found");
 							var userSend = user;
