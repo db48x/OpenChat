@@ -1,18 +1,21 @@
 $(function () {
 	// globals 
     var BASE64_MARKER = ';base64,';
-	var URI_WEBSOCKET = 'ws://54.225.76.120';
-	//var URI_WEBSOCKET = 'ws://localhost';
+	//var URI_WEBSOCKET = 'ws://54.225.76.120';
+	var URI_WEBSOCKET = 'ws://localhost';
 	var UserMarkers = {};
 	var CURRENTUSER = {};
-	var CURRENTPOS = {};
+	var CURRENTPOS = {lat: 0, lng: 0};
 
 	function clearCurrentUser() {
-		CURRENTUSER = { _id: '', email: '', pw: '', pwnew: '', lat: CURRENTPOS.lat, lng: CURRENTPOS.lng, userImageUrl: '', windowTransparency: '.5' };
+		CURRENTUSER = { _id: '', email: '', pw: '', lat: 0, lng: 0, userImageUrl: '', windowTransparency: '.5' };
 	}
 
-	function getCurrentUserShort(user) {
-		return {_id: user._id, email: user.email, name: user.name, lat: user.lat, lng: user.lng, userImageUrl: user.userImageUrl};
+	function getUserMed(user) {
+		return { _id: user._id, name: user.name, lat: user.lat, lng: user.lng, userImageUrl: user.userImageUrl};		
+	};
+	function getUserShort(user) {
+		return {_id: user._id, name: user.name };
 	}
 		
 	var lmap = new LMap();	
@@ -256,8 +259,8 @@ $(function () {
 		};
 		
 		this.chatMessage = function(msg) {
-			// put together the JSON
-			var json = JSON.stringify({ cmd: 'userMessage', value: msg , data: getCurrentUserShort(CURRENTUSER)});
+			// TODO instead of getUserMed send getUserShort and use the cached user data.
+			var json = JSON.stringify({ cmd: 'userMessage', value: msg , data: getUserMed(CURRENTUSER)});
 			// send the message
 			connection.send(json);
 		};
@@ -618,9 +621,24 @@ $(function () {
 		// get the user name
 		CURRENTUSER.email = userEmail;
 		CURRENTUSER.pw = userPassword;
-        var json = JSON.stringify({cmd: 'userLogin', data: CURRENTUSER});
-		// if valid, send info to the server
- 		server.send(json, callback);
+
+		function sendLogin() {
+			CURRENTUSER.lat = CURRENTPOS.lat;
+			CURRENTUSER.lng = CURRENTPOS.lng;
+	        var json = JSON.stringify({cmd: 'userLogin', data: CURRENTUSER});
+			// if valid, send info to the server
+	 		server.send(json, callback);
+		}
+		
+		if(CURRENTPOS.lat == 0 && CURRENTPOS.lng == 0) {
+			navigator.geolocation.getCurrentPosition(function (position) {
+				CURRENTPOS.lat = position.coords.latitude;
+				CURRENTPOS.lng = position.coords.longitude;
+				sendLogin();
+			});	
+		} else {
+			sendLogin();
+		}
 	}
 
 // ------------------------------ dialog-login ------------------------------

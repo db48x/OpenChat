@@ -302,17 +302,15 @@ wsServer.on('request', function (request) {
 	
     console.log((new Date()) + ' Connection from origin ' + request.origin + '.');
 
-    // accept connection - you should check 'request.origin' to make sure that
+    // TODO check 'request.origin' to make sure that
     // client is connecting from your website
     // (http://en.wikipedia.org/wiki/Same_origin_policy)
     var connection = request.accept(null, request.origin);
     // we need to know client index to remove them on 'close' event
     
-    // create a connectionId that will be assigned to new users as the userid
+    // create a connectionId and store it in the connections collection
     var connectionId = db.ObjectId();
-    console.log((new Date()) + 'Yo, we have a connection!');
-    console.log('connectionId: ' + connectionId);
-    
+    console.log((new Date()) + 'Yo, we have a connection!');    
     connections.add(connectionId, connection);
     
     // send back chat history
@@ -323,8 +321,8 @@ wsServer.on('request', function (request) {
 
 	function getOnlineUsers()
 	{
-		// TODO define the projections: { pw: 0, tsLastLogin: 0, online: 0 },
-		db.users.find( {online: true}, function(err, users) {
+		var projections =  { _id: 1, name: 1, lat: 1, lng: 1, userImageUrl: 1};	
+		db.users.find( {online: true}, projections, function(err, users) {
 			if( err || !users) {			// err, user not found
 				console.log("getOnlineUsers, no online users found");
 			}
@@ -336,6 +334,16 @@ wsServer.on('request', function (request) {
 		});
 	}
 	getOnlineUsers();
+	
+	function getUserLong(user) {
+		return { _id: user._id, name: user.name, email: user.email, lat: user.lat, lng: user.lng, userImageUrl: user.userImageUrl, windowTransparency: user.windowTransparency};		
+	}
+	function getUserMed(user) {
+		return { _id: user._id, name: user.name, lat: user.lat, lng: user.lng, userImageUrl: user.userImageUrl};		
+	}
+	function getUserShort(user) {
+		return { _id: user._id, name: user.name };		
+	}
     
     console.log('before callBackForNotifications called');
     bs.callBackForNotifications(connection);
@@ -343,15 +351,14 @@ wsServer.on('request', function (request) {
 	this.sendUserLogin = function(loginMsg, connId, user) {
 		var json;
 		if(loginMsg == 'success' || loginMsg == 'successNew') {
-			var usr = user;
-			delete usr.pw; // never send the pw from the server
+			var usr = getUserMed(user);
     		json = JSON.stringify({ cmd: 'userLogin', value: loginMsg, data: usr });
     		           	
            	loggedOn = true;
            	// send userLogin only to current client
            	connections.item(connId).sendUTF(json);
 			// broadcast addUser message to all other clients
-	        var json = JSON.stringify({ cmd: 'addUser', data: user });	        
+	        var json = JSON.stringify({ cmd: 'addUser', data: usr });	        
 	        connections.forEach(function (conn, key) {
 	        	console.log('connections.forEach key: ' + key);
 			    if(key != connId)
@@ -377,7 +384,8 @@ wsServer.on('request', function (request) {
 				console.log('sendUserLogOut for user: ' + JSON.stringify(user));
 				var json;
 		       	loggedOn = false;
-				json = JSON.stringify({ cmd: 'userLogOut', data: user });
+				var usr = getUserShort(user);
+				json = JSON.stringify({ cmd: 'userLogOut', data: usr });
 		       	// send userLogin only to current client
 		    	try {
 					connections.item(connId).sendUTF(json);
@@ -385,7 +393,7 @@ wsServer.on('request', function (request) {
 					console.log(e);
 				}
 				// broadcast removeUser message to all other clients
-		        var json = JSON.stringify({ cmd: 'removeUser', data: user });
+		        var json = JSON.stringify({ cmd: 'removeUser', data: usr });
 		        connections.forEach(function (conn, key) {
 				    if(key != connId)
 				    {
@@ -401,9 +409,12 @@ wsServer.on('request', function (request) {
 	};
 	
 	this.getUserSettings = function(user, connId) {
-		var json = JSON.stringify({ cmd: 'getUserSettings', data: user });
+		var usr = getUserLong(user);
+		var json = JSON.stringify({ cmd: 'getUserSettings', data: usr });
 		connections.item(connId).sendUTF(json);
 	};
+	
+
 	// json structure:
 	//  {
 	//		cmd: userLogin / addUser / userMsg 
@@ -472,11 +483,9 @@ wsServer.on('request', function (request) {
 					db.users.findOne({connectionId: connectionId}, function(err, user) {
 						if( err || !user) {			// err, user not found
 							console.log("getUserSettings, User with id " + userId + " not found");
-						}
-                                            else if (user._id != userId) {
-                                                console.log("getUserSettings, hacker alert! userId spoofed");
-                                            }
-						else {							
+						} else if (user._id != userId) {
+                            console.log("getUserSettings, hacker alert! userId spoofed");
+                        } else {
 							console.log("getUserSettings, User with id " + userId + " found");	            	
 			            	// return all the user settings
 			            	_this.getUserSettings(user, connectionId);
@@ -484,21 +493,19 @@ wsServer.on('request', function (request) {
 	            	});
 	            	break;
 	            case 'setUserSettings':
-	        var argQuery = {connectionId: connectionId, pw: json.data.pw};
+	        		var argQuery = {connectionId: connectionId, pw: json.data.pw};
 	            	var argUpdate = { $set: { email: json.data.email.toLowerCase(), name: json.data.name, pw: json.data.pw, userImageUrl: json.data.userImageUrl, windowTransparency: json.data.windowTransparency  } };
 	            	
+	            	var userId = json.data._id;
 					db.users.findAndModify( { query: argQuery, update: argUpdate, new: true, upsert: false}, function(err, user) {
 						if( err || !user) {			// err, user not found
 							console.log("setUserSettings findAndModify, User not found");
-						}
-                                            else if (user._id != json.data._id) {
-                                                console.log("setUserSettings, hacker alert! userId spoofed");
-                                            }
-						else {							
+                        } else if (user._id != userId) {
+	                        console.log("setUserSettings, hacker alert! userId spoofed");
+						} else {
 							console.log("setUserSettings findAndModify, User with id " + user._id + " and PW: " + user.pw +  " found");
-							var userSend = user;
-							delete userSend['pw'];
-							var json = JSON.stringify({ cmd: 'setUserSettings', data: userSend });
+							var usr = getUserMed(user);
+							var json = JSON.stringify({ cmd: 'setUserSettings', data: usr });
 			                // broadcast message to all connected clients
 				    	    connections.forEach(function (conn, key) {
 								conn.sendUTF(json);
@@ -511,7 +518,8 @@ wsServer.on('request', function (request) {
 		                console.log((new Date()) + ' Received Message from '
 		                            + json.data.name + ': ' + message.utf8Data);
 
-		                var jsonMsg = JSON.stringify({ cmd: 'userMessage', value: json.value, data: json.data });
+						var usr = getUserMed(json.data);
+		                var jsonMsg = JSON.stringify({ cmd: 'userMessage', value: json.value, data: usr });
 		                // broadcast message to all connected clients
 			    	    connections.forEach(function (conn, key) {
 							conn.sendUTF(jsonMsg);
