@@ -21,6 +21,8 @@
 		<script src="http://code.jquery.com/ui/1.10.1/jquery-ui.js"></script>            
   		<script src="http://cdn.binaryjs.com/0/binary.js"></script>
 		<script src="js/jquery.ui.touch-punch.min.js"></script>
+		<link rel="stylesheet" href="css/chosen.css" />
+		<script src="js/chosen.jquery.js"></script> 
 		<script src="openchat.js"></script>
         <style>
             body {
@@ -35,6 +37,7 @@
         	input.text { margin-bottom:12px; width:95%; padding: .4em; }
         	fieldset { padding:0; border:0; margin-top:10px; }      
         	.validateTips { border: 1px solid transparent; padding: 0.2em; }   	
+
 
 	    	.bgTransparency { 
 	    		background:rgba(255, 255, 255, 0.5); 
@@ -104,14 +107,22 @@
 	                <hr>
 	                <label for="userEmail">Change Your Email:</label>
 	                <input type="text" id="userEmail" value="" class="text ui-widget-content ui-corner-all" />
-					<hr>
-					<label for="chatWindowTransparency">Windows Transparent</label>
-					<input type="range" id="chatWindowTransparency" min="0" step=".5" max="1" value=".5" style="width: 150px;"/>Opaque
 					<!--
 					<hr>
 					<input type="checkbox" id="emailNotifications"/>
 	                <label for="emailNotifications">Receive Email Notifications.</label>
 	                -->
+	                <hr>
+	                <label for="userInterests">I speak:</label>
+					<select id="userInterests" class="chosen" multiple="true" style="width:330px; font-size: 14px;">
+						<option selected>English</option>
+						<option>Spanish</option>
+						<option>German</option>
+						<option>French</option>
+					</select>            
+					<hr>
+					<label for="chatWindowTransparency">Windows Transparent</label>
+					<input type="range" id="chatWindowTransparency" min="0" step=".5" max="1" value=".5" style="width: 150px;"/>Opaque
 	            </fieldset>
 	        </form>
 	    </div>		

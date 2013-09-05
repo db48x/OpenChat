@@ -1,11 +1,13 @@
 $(function () {
 	// globals 
     var BASE64_MARKER = ';base64,';
-	var URI_WEBSOCKET = 'ws://54.225.76.120';
-	//var URI_WEBSOCKET = 'ws://localhost';
+	//var URI_WEBSOCKET = 'ws://54.225.76.120';
+	var URI_WEBSOCKET = 'ws://localhost';
 	var UserMarkers = {};
 	var CURRENTUSER = {};
 	var CURRENTPOS = {lat: 0, lng: 0};
+
+	$(".chosen").chosen();	
 
 	function clearCurrentUser() {
 		CURRENTUSER = { _id: '', email: '', pw: '', lat: 0, lng: 0, userImageUrl: '', windowTransparency: '.5' };
@@ -17,7 +19,7 @@ $(function () {
 	function getUserShort(user) {
 		return {_id: user._id, name: user.name };
 	}
-		
+	
 	var lmap = new LMap();	
     // start class LMap
     function LMap() {
@@ -711,7 +713,7 @@ $(function () {
 	$("#dialog-settings").dialog({
 		dialogClass:'bgTransparency',
         autoOpen: false,
-        height: 580,
+        height: 650,
         width: 480,
         modal: true,
 	    show: 'explode',
