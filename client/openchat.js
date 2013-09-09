@@ -1,8 +1,6 @@
 $(function () {
 	// globals 
     var BASE64_MARKER = ';base64,';
-	//var URI_WEBSOCKET = 'ws://54.225.76.120';
-	var URI_WEBSOCKET = 'ws://localhost';
 	var UserMarkers = {};
 	var CURRENTUSER = {};
 	var CURRENTPOS = {lat: 0, lng: 0};
@@ -151,8 +149,7 @@ $(function () {
 	
 	// start class BinaryUpload
 	function BinaryUpload() {
-		//var uri = URI_WEBSOCKET + ':1337/binary-endpoint';
-		var uri = URI_WEBSOCKET + ':1338/binary-endpoint';
+		var uri = 'ws:' + location.host + ':1338/binary-endpoint';
 	    var client = new BinaryClient(uri);
 	    
 		client.on('stream', function(stream, meta){    
@@ -248,7 +245,7 @@ $(function () {
 	function ServerConnection() {
 		// constructor code
 		var _this = this;
-		var uri = URI_WEBSOCKET + ':1337';
+		var uri = 'ws:' + location.host + ':1337';
         var connection = new WebSocket(uri);
 		this.callback = {};
         var input = $('#input');
