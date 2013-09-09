@@ -33,58 +33,25 @@ var imageServer = http.createServer(app);
 
 // start ImageMagick class
 function ImageMagick() {
-	this.getExifInfo = function (fileName, callbackLatLng) {
-		var retVal = 'nothing';
-		async.series( [
-		    function(callback) {
-		        im.identify(['-format', '%[EXIF:GPSLatitude]',fileName], function(err, metadata){
-					if (err) {
-						console.log(err);
-					} else {
-						callback(null, { 'GPSLatitude': getDMS(metadata.trimRight()) });
-					}
-		        });
-		    },
-		    function(callback) {
-		        im.identify(['-format', '%[EXIF:GPSLatitudeRef]',fileName], function(err, metadata){
-					if (err) {
-						console.log(err);
-					} else {
-						callback(null, { 'GPSLatitudeRef': metadata.trimRight() });
-					}
-		        });
-		    },
-		    function(callback) {
-		        im.identify(['-format', '%[EXIF:GPSLongitude]',fileName], function(err, metadata){
-					if (err) {
-						console.log(err);
-					} else {
-						callback(null, { 'GPSLongitude': getDMS(metadata.trimRight()) });
-					}
-		        });
-		    },
-		    function(callback) {
-		        im.identify(['-format', '%[EXIF:GPSLongitudeRef]',fileName ], function(err, metadata){
-					if (err) {
-						console.log(err);
-					} else {
-						callback(null, { 'GPSLongitudeRef': metadata.trimRight() });
-					}
-		        });
-		    },
-		]
-		,
-		function(err, results){
-		    var latDMS = ConvertDMSToDD(results[0].GPSLatitude, results[1].GPSLatitudeRef);
-		    console.log(latDMS);
-		    var lngDMS = ConvertDMSToDD(results[2].GPSLongitude, results[3].GPSLongitudeRef);
-		    console.log(lngDMS);  
-		    callbackLatLng({ lat : latDMS, lng : lngDMS });
-		    
-		});
-		
-		return retVal;
-	};
+    this.getExifInfo = function (fileName, callbackLatLng) {
+        var latlng = {};
+        // readMetaData does more work than we currently require,
+        // parsing every property in the image rather than just the
+        // ones we need.
+        im.readMetadata(fileName,
+                        function (err, metadata) {
+                            if (!err) {
+                                var latDMS = ConvertDMSToDD(metadata.exif.GPSLatitude,
+                                                            metadata.exif.GPSLatitudeRef);
+                                console.log(latDMS);
+                                var lngDMS = ConvertDMSToDD(metadata.exif.GPSLongitude,
+                                                            metadata.exif.GPSLongitudeRef);
+                                console.log(lngDMS);  
+                                callbackLatLng({ lat : latDMS, lng : lngDMS });
+                            }
+                            return callbackLatLng(err);
+                        });
+    };
 
 	this.resizeAndSave = function (fileName, newFilename, maxWidth, callback) {
 		console.log('resizeAndSave: ' + fileName);
@@ -243,9 +210,9 @@ var chathistory = [];
 var loggedOn = false;
 
 // collection class for active users
-var Collection = function () {
+var Collection = function (initial) {
     this.count = 0;
-    this.collection = {}; // create the collection
+    this.collection = initial || {}; // create one if nothing was passed in
     this.has = function (prop) {
         return Object.hasOwnProperty.call(this.collection, prop);
     };
@@ -264,7 +231,7 @@ var Collection = function () {
             return this.collection[key];
         return undefined;
     };
-    this.forEach = function(callback) {
+    this.forEach = function (callback) {
         if (!callback)
             return;
         for (var key in this.collection)
@@ -274,6 +241,11 @@ var Collection = function () {
                 callback(this.collection[key], key);
             }
         }
+    };
+    this.keys = function () {
+        var keys = [];
+        this.forEach(function (value, key) { keys.push(key); });
+        return keys;
     };
 };
 
@@ -418,134 +390,160 @@ wsServer.on('request', function (request) {
 	//		value: true / false / message
     //		data : userInfo data { id, name, email, lat, lng, picUrl }
     //  }
-    connection.on('message', function (message) {
+    var protocol = new Collection({ userLogin: userLogin,
+                                    userLogOut: userLogout,
+                                    getUserSettings: getSettings,
+                                    setUserSettings: setSettings,
+                                    userMessage: onChat,
+                                    importImage: importImage
+                                  });
 
+    function userLogin(message) {
+        console.log('look up user email in DB');
+        var userEmail = message.data.email.toLowerCase();       // always store the lower case email
+        // try to find the user in the database
+        db.users.findOne({ email: userEmail }, function(err, user) {
+            if (err || !user) {                 // err, user NOT found
+                console.log('User was NOT found, create a new record in MongoDb');
+                var userName = userEmail.substring(0, userEmail.indexOf('@'));
+                var user = { email: userEmail,
+                             name: userName,
+                             pw: message.data.pw,
+                             lat: message.data.lat,
+                             lng: message.data.lng,
+                             userImageUrl: message.data.userImageUrl,
+                             windowTransparency: message.data.windowTransparency,
+                             online: true,
+                             tsLastLogin: (new Date()).toJSON(),
+                             connectionId: connectionId
+                           };
+                db.users.save(user, function(err, saved) {
+                    if(err || !saved)
+                        console.log("User not saved");
+                    else {
+                        console.log("User saved");
+                        _this.sendUserLogin('successNew', connectionId, user);
+                    }
+                });
+            }
+            else {
+                console.log("User found, check the password");
+                console.log(user.pw);
+                console.log(user.pw);
+                if (user.pw.toLowerCase() == message.data.pw.toLowerCase()) {   // login success, not case sensitive
+                    // set the online flag
+                    var argQuery = {_id: user._id};
+                    var argUpdate = { $set: { online: true, tsLastLogin: (new Date()).toJSON(), connectionId: connectionId} };
+                    db.users.findAndModify({ query: argQuery, update: argUpdate, new: true, upsert: false}, function(err, user) {
+                        if(err || !user) {
+                            console.log('login not successful');
+                        }
+                        else {
+                            console.log('login successful');
+                            _this.sendUserLogin('success', connectionId, user);
+                        }
+                    });
+                }
+                else {
+                    var msg = 'login failed, wrong password';
+                    console.log(msg);
+                    _this.sendUserLogin(msg, connectionId);
+                }
+            }
+        });
+    }
+
+    function userLogout(message) {
+        _this.sendUserLogOut(connectionId);
+    }
+
+    function getSettings(message) {
+        // look up user id and password
+        var userId = message.data._id;
+        // try to find the user in the database
+        db.users.findOne({connectionId: connectionId}, function(err, user) {
+            if(err || !user) {                  // err, user not found
+                console.log("getUserSettings, User with id " + userId + " not found");
+            } else if (user._id != userId) {
+                console.log("getUserSettings, hacker alert! userId spoofed");
+            } else {
+                console.log("getUserSettings, User with id " + userId + " found");
+                // return all the user settings
+                _this.getUserSettings(user, connectionId);
+            }
+        });
+    }
+
+    function setSettings(message) {
+        var argQuery = { connectionId: connectionId,
+                         pw: message.data.pw };
+        var argUpdate = { $set: { email: message.data.email.toLowerCase(),
+                                  name: message.data.name,
+                                  pw: message.data.pw,
+                                  userImageUrl: message.data.userImageUrl,
+                                  windowTransparency: message.data.windowTransparency
+                                }
+                        };
+        var userId = message.data._id;
+        db.users.findAndModify({ query: argQuery, update: argUpdate, new: true, upsert: false }, function(err, user) {
+            if(err || !user) {                  // err, user not found
+                console.log("setUserSettings findAndModify, User not found");
+            } else if (user._id != userId) {
+                console.log("setUserSettings, hacker alert! userId spoofed");
+            } else {
+                console.log("setUserSettings findAndModify, User with id " + user._id + " and PW: " + user.pw + " found");
+                var usr = getUserMed(user);
+                var json = JSON.stringify({ cmd: 'setUserSettings', data: usr });
+                // broadcast message to all connected clients
+                connections.forEach(function (conn, key) {
+                    conn.sendUTF(json);
+                });
+            }
+        });
+    }
+
+    function onChat(message) {
+        if (loggedOn) {
+            console.log((new Date()) + ' Received Message from ' + message.data.name + ': ' + message.value);
+            var usr = getUserMed(message.data);
+            var jsonMsg = JSON.stringify({ cmd: 'userMessage', value: message.value, data: usr });
+            // broadcast message to all connected clients
+            connections.forEach(function (conn, key) {
+                conn.sendUTF(jsonMsg);
+            });
+        }
+    }
+
+    function importImage(message) {
+        // get the image from S3
+        var fileKey = json.fileKey;
+        s3Helper.getFile(fileKey, imagesFilePath, function() {
+            console.log('Successfully downloaded image');
+            console.log('crop the image');
+            imgMgk.resizeAndSave(imagesFilePath + fileKey, imagesFilePath + fileKey, 800);
+            console.log('get exif data');
+            imgMgk.getExifInfo(imagesFilePath + fileKey, function(latlng) {
+                console.log('info received: ' + JSON.stringify(latlng));
+                console.log('upload the image to S3');
+                s3Helper.pushFile(imagesFilePath, fileKey, function() {
+                    console.log('Successfully uploaded image' );
+                    console.log('return response');
+                    var url = 'https://s3.amazonaws.com/zeitgeistmedia/' + fileKey;
+                    connection.sendUTF(JSON.stringify({ type: 'importImage', url:url, latlng: latlng, fileKey: fileKey }));
+                });
+            });
+        });
+    }
+
+    connection.on('message', function (message) {
         if (message.type === 'utf8') { // accept only text
             var json = JSON.parse(message.utf8Data);
-            
-            console.log(json);
-            switch (json.cmd) {
-            	// handle first and subsequent logins, use email and pw as id. Any subsequent requests will use id
-            	case 'userLogin': 			
-	                console.log('look up user email in DB');
-	                var userEmail = json.data.email.toLowerCase();	// always store the lower case email               
-	                // try to find the user in the database
-					db.users.findOne({email: userEmail}, function(err, user) {
-						if( err || !user) {			// err, user NOT found
-	                		console.log('User was NOT found, create a new record in MongoDb');
-			        		var userName = userEmail.substring(0, userEmail.indexOf('@'));
-			        		var user = { email: userEmail, name: userName, pw: json.data.pw, lat: json.data.lat, lng: json.data.lng, userImageUrl: json.data.userImageUrl, windowTransparency: json.data.windowTransparency, online: true, tsLastLogin: (new Date()).toJSON(), connectionId: connectionId};
-							db.users.save(user, function(err, saved) {
-								if( err || !saved ) 
-									console.log("User not saved");
-								else {
-									console.log("User saved");
-									_this.sendUserLogin('successNew', connectionId, user);
-								}
-							});           		               		
-						}
-						else {							
-							console.log("User found, check the password");
-							console.log(user.pw);
-							console.log(user.pw);
-							if(user.pw.toLowerCase() == json.data.pw.toLowerCase()) {	// login success, not case sensitive               			
-								// set the online flag
-				            	var argQuery = {_id: user._id};
-				            	var argUpdate = { $set: { online: true, tsLastLogin: (new Date()).toJSON(), connectionId: connectionId} };						            	
-								db.users.findAndModify( { query: argQuery, update: argUpdate, new: true, upsert: false}, function(err, user) {
-									if( err || !user ) {
-	                					console.log('login not successful');
-									}
-									else {
-	                					console.log('login successful');
-										_this.sendUserLogin('success', connectionId, user);
-									}
-								});
-                			}
-                			else {
-                				var msg = 'login failed, wrong password';
-                				console.log(msg);
-								_this.sendUserLogin(msg, connectionId);
-                			}
-					  	}
-					});                       
-	            	break;
-	            case 'userLogOut':
-	            	_this.sendUserLogOut(connectionId);
-	            	break;
-	            case 'getUserSettings':
-	            	// look up user id and password
-	                var userId = json.data._id;             
-	                // try to find the user in the database
-					db.users.findOne({connectionId: connectionId}, function(err, user) {
-						if( err || !user) {			// err, user not found
-							console.log("getUserSettings, User with id " + userId + " not found");
-						} else if (user._id != userId) {
-                            console.log("getUserSettings, hacker alert! userId spoofed");
-                        } else {
-							console.log("getUserSettings, User with id " + userId + " found");	            	
-			            	// return all the user settings
-			            	_this.getUserSettings(user, connectionId);
-	            		}
-	            	});
-	            	break;
-	            case 'setUserSettings':
-	        		var argQuery = {connectionId: connectionId, pw: json.data.pw};
-	            	var argUpdate = { $set: { email: json.data.email.toLowerCase(), name: json.data.name, pw: json.data.pw, userImageUrl: json.data.userImageUrl, windowTransparency: json.data.windowTransparency  } };
-	            	
-	            	var userId = json.data._id;
-					db.users.findAndModify( { query: argQuery, update: argUpdate, new: true, upsert: false}, function(err, user) {
-						if( err || !user) {			// err, user not found
-							console.log("setUserSettings findAndModify, User not found");
-                        } else if (user._id != userId) {
-	                        console.log("setUserSettings, hacker alert! userId spoofed");
-						} else {
-							console.log("setUserSettings findAndModify, User with id " + user._id + " and PW: " + user.pw +  " found");
-							var usr = getUserMed(user);
-							var json = JSON.stringify({ cmd: 'setUserSettings', data: usr });
-			                // broadcast message to all connected clients
-				    	    connections.forEach(function (conn, key) {
-								conn.sendUTF(json);
-							});
-						}
-					});
-	            	break;
-	            case 'userMessage':
-	            	if(loggedOn) { 		
-		                console.log((new Date()) + ' Received Message from '
-		                            + json.data.name + ': ' + message.utf8Data);
-
-						var usr = getUserMed(json.data);
-		                var jsonMsg = JSON.stringify({ cmd: 'userMessage', value: json.value, data: usr });
-		                // broadcast message to all connected clients
-			    	    connections.forEach(function (conn, key) {
-							conn.sendUTF(jsonMsg);
-						});
-					}
-	                break;
-                case 'importImage':
-                {
-					// get the image from S3
-					var fileKey = json.fileKey;
-					s3Helper.getFile(fileKey, imagesFilePath, function() {
-						console.log('Successfully downloaded image');
-						console.log('crop the image');
-						imgMgk.resizeAndSave(imagesFilePath + fileKey, imagesFilePath + fileKey, 800);
-						console.log('get exif data');
-						imgMgk.getExifInfo(imagesFilePath + fileKey, function(latlng) {
-							console.log('info received: ' + JSON.stringify(latlng));
-							console.log('upload the image to S3');
-							s3Helper.pushFile(imagesFilePath, fileKey, function() {
-								console.log('Successfully uploaded image' );
-								console.log('return response');
-								var url = 'https://s3.amazonaws.com/zeitgeistmedia/' + fileKey;
-								connection.sendUTF(JSON.stringify({ type: 'importImage', url:url, latlng: latlng, fileKey: fileKey}));
-							});
-						});
-					});
-				}
-                break;	                
+            if (protocol.keys().indexOf(json.cmd) !== -1) {
+                console.log(json.data);
+                protocol.item(json.cmd)(json);
             }
+            else
+                console.log("unknown command: "+ json.cmd +"["+ protocol.keys() +"]");
         }
     });
 
