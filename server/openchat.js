@@ -33,58 +33,25 @@ var imageServer = http.createServer(app);
 
 // start ImageMagick class
 function ImageMagick() {
-	this.getExifInfo = function (fileName, callbackLatLng) {
-		var retVal = 'nothing';
-		async.series( [
-		    function(callback) {
-		        im.identify(['-format', '%[EXIF:GPSLatitude]',fileName], function(err, metadata){
-					if (err) {
-						console.log(err);
-					} else {
-						callback(null, { 'GPSLatitude': getDMS(metadata.trimRight()) });
-					}
-		        });
-		    },
-		    function(callback) {
-		        im.identify(['-format', '%[EXIF:GPSLatitudeRef]',fileName], function(err, metadata){
-					if (err) {
-						console.log(err);
-					} else {
-						callback(null, { 'GPSLatitudeRef': metadata.trimRight() });
-					}
-		        });
-		    },
-		    function(callback) {
-		        im.identify(['-format', '%[EXIF:GPSLongitude]',fileName], function(err, metadata){
-					if (err) {
-						console.log(err);
-					} else {
-						callback(null, { 'GPSLongitude': getDMS(metadata.trimRight()) });
-					}
-		        });
-		    },
-		    function(callback) {
-		        im.identify(['-format', '%[EXIF:GPSLongitudeRef]',fileName ], function(err, metadata){
-					if (err) {
-						console.log(err);
-					} else {
-						callback(null, { 'GPSLongitudeRef': metadata.trimRight() });
-					}
-		        });
-		    },
-		]
-		,
-		function(err, results){
-		    var latDMS = ConvertDMSToDD(results[0].GPSLatitude, results[1].GPSLatitudeRef);
-		    console.log(latDMS);
-		    var lngDMS = ConvertDMSToDD(results[2].GPSLongitude, results[3].GPSLongitudeRef);
-		    console.log(lngDMS);  
-		    callbackLatLng({ lat : latDMS, lng : lngDMS });
-		    
-		});
-		
-		return retVal;
-	};
+    this.getExifInfo = function (fileName, callbackLatLng) {
+        var latlng = {};
+        // readMetaData does more work than we currently require,
+        // parsing every property in the image rather than just the
+        // ones we need.
+        im.readMetadata(fileName,
+                        function (err, metadata) {
+                            if (!err) {
+                                var latDMS = ConvertDMSToDD(metadata.exif.GPSLatitude,
+                                                            metadata.exif.GPSLatitudeRef);
+                                console.log(latDMS);
+                                var lngDMS = ConvertDMSToDD(metadata.exif.GPSLongitude,
+                                                            metadata.exif.GPSLongitudeRef);
+                                console.log(lngDMS);  
+                                callbackLatLng({ lat : latDMS, lng : lngDMS });
+                            }
+                            return callbackLatLng(err);
+                        });
+    };
 
 	this.resizeAndSave = function (fileName, newFilename, maxWidth, callback) {
 		console.log('resizeAndSave: ' + fileName);
