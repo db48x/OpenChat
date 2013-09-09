@@ -1,8 +1,7 @@
 $(function () {
 	// globals 
     var BASE64_MARKER = ';base64,';
-	//var URI_WEBSOCKET = 'ws://54.225.76.120';
-	var URI_WEBSOCKET = 'ws://localhost';
+	var URI_WEBSOCKET = 'ws://' + location.host;
 	var UserMarkers = {};
 	var CURRENTUSER = {};
 	var CURRENTPOS = {lat: 0, lng: 0};
