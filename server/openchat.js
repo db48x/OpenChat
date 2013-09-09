@@ -262,6 +262,12 @@ var wsServer = new webSocketServer({
     httpServer: server
 });
 
+// In case the node app was not properly shut down, remove any dangling online users (assumes single node process)
+(function cleanOnlineUsers()
+{
+	db.users.findAndModify({query:{online: true}, update: {$set:{online:false}}, new: true} , function(err, user) {
+	});
+})();
 
 
 // This callback function is called every time someone
@@ -288,7 +294,7 @@ wsServer.on('request', function (request) {
 //        connection.sendUTF(JSON.stringify({ cmd: 'history', data: chathistory }));
 //    }
 
-	function getOnlineUsers()
+	(function getOnlineUsers()
 	{
 		var projections =  { _id: 1, name: 1, lat: 1, lng: 1, userImageUrl: 1};	
 		db.users.find( {online: true}, projections, function(err, users) {
@@ -301,11 +307,10 @@ wsServer.on('request', function (request) {
     			connection.sendUTF(JSON.stringify({ cmd: 'users', data: users}));
 			}
 		});
-	}
-	getOnlineUsers();
+	})();
 	
 	function getUserLong(user) {
-		return { _id: user._id, name: user.name, email: user.email, lat: user.lat, lng: user.lng, userImageUrl: user.userImageUrl, windowTransparency: user.windowTransparency};		
+		return { _id: user._id, name: user.name, email: user.email, lat: user.lat, lng: user.lng, userImageUrl: user.userImageUrl, windowTransparency: user.windowTransparency, languages: user.languages};		
 	}
 	function getUserMed(user) {
 		return { _id: user._id, name: user.name, lat: user.lat, lng: user.lng, userImageUrl: user.userImageUrl};		
@@ -376,29 +381,46 @@ wsServer.on('request', function (request) {
 			}
 		});
 	};
-	
-	this.getUserSettings = function(user, connId) {
-		var usr = getUserLong(user);
-		var json = JSON.stringify({ cmd: 'getUserSettings', data: usr });
-		connections.item(connId).sendUTF(json);
-	};
-	
+		
 
-	// json structure:
-	//  {
-	//		cmd: userLogin / addUser / userMsg 
-	//		value: true / false / message
-    //		data : userInfo data { id, name, email, lat, lng, picUrl }
-    //  }
-    var protocol = new Collection({ userLogin: userLogin,
-                                    userLogOut: userLogout,
-                                    getUserSettings: getSettings,
-                                    setUserSettings: setSettings,
-                                    userMessage: onChat,
-                                    importImage: importImage
+// Current user Schema:
+/*
+user = {
+    "_id": int,
+    "connectionId": int,
+    "name": string,
+    "email": string,
+    "pw": string,
+    "userImageUrl": string,
+    "windowTransparency": string,
+    "online": boolean,
+    "lat": float,
+    "lng": float,
+    "interests": [{ 
+    		interest: string
+    }],
+    "tsLastLogin": TimeStamp
+}
+*/ 
+    
+// json structure:
+/*
+{
+    cmd: userLogin / addUser / userMsg 
+    value: true / false / message
+    data : userInfo data { id, name, email, lat, lng, picUrl }
+}
+*/
+     
+    var protocol = new Collection({ userLogin: onUserLogin,
+                                    userLogOut: onUserLogout,
+                                    getUserSettings: onGetUserSettings,
+                                    setUserSettings: onSetUserSettings,
+                                    userMessage: onUserChat,
+                                    importImage: onImportImage
                                   });
 
-    function userLogin(message) {
+    function onUserLogin(message) {
         console.log('look up user email in DB');
         var userEmail = message.data.email.toLowerCase();       // always store the lower case email
         // try to find the user in the database
@@ -414,6 +436,7 @@ wsServer.on('request', function (request) {
                              userImageUrl: message.data.userImageUrl,
                              windowTransparency: message.data.windowTransparency,
                              online: true,
+                             languages: ["English"],
                              tsLastLogin: (new Date()).toJSON(),
                              connectionId: connectionId
                            };
@@ -453,46 +476,49 @@ wsServer.on('request', function (request) {
         });
     }
 
-    function userLogout(message) {
+    function onUserLogout(message) {
         _this.sendUserLogOut(connectionId);
     }
 
-    function getSettings(message) {
+    function onGetUserSettings(message) {
         // look up user id and password
         var userId = message.data._id;
         // try to find the user in the database
         db.users.findOne({connectionId: connectionId}, function(err, user) {
             if(err || !user) {                  // err, user not found
-                console.log("getUserSettings, User with id " + userId + " not found");
+                console.log("onGetUserSettings, User with id " + userId + " not found");
             } else if (user._id != userId) {
-                console.log("getUserSettings, hacker alert! userId spoofed");
+                console.log("onGetUserSettings, hacker alert! userId spoofed");
             } else {
-                console.log("getUserSettings, User with id " + userId + " found");
+                console.log("onGetUserSettings, User with id " + userId + " found");
                 // return all the user settings
-                _this.getUserSettings(user, connectionId);
+				var usr = getUserLong(user);
+				var json = JSON.stringify({ cmd: 'getUserSettings', data: usr });
+				connections.item(connectionId).sendUTF(json);
             }
         });
     }
 
-    function setSettings(message) {
+    function onSetUserSettings(message) {
+    	var user = message.data;
         var argQuery = { connectionId: connectionId,
-                         pw: message.data.pw };
-        var argUpdate = { $set: { email: message.data.email.toLowerCase(),
-                                  name: message.data.name,
-                                  pw: message.data.pw,
-                                  userImageUrl: message.data.userImageUrl,
-                                  windowTransparency: message.data.windowTransparency
+                         pw: user.pw };
+        var argUpdate = { $set: { email: user.email.toLowerCase(),
+                                  name: user.name,
+                                  pw: user.pw,
+                                  userImageUrl: user.userImageUrl,
+                                  windowTransparency: user.windowTransparency,
+                                  languages: user.languages
                                 }
                         };
-        var userId = message.data._id;
-        db.users.findAndModify({ query: argQuery, update: argUpdate, new: true, upsert: false }, function(err, user) {
-            if(err || !user) {                  // err, user not found
+        db.users.findAndModify({ query: argQuery, update: argUpdate, new: true, upsert: false }, function(err, userDb) {
+            if(err || !userDb) {                  // err, user not found
                 console.log("setUserSettings findAndModify, User not found");
-            } else if (user._id != userId) {
+            } else if (userDb._id != user._id) {
                 console.log("setUserSettings, hacker alert! userId spoofed");
             } else {
-                console.log("setUserSettings findAndModify, User with id " + user._id + " and PW: " + user.pw + " found");
-                var usr = getUserMed(user);
+                console.log("setUserSettings findAndModify, User with id " + userDb._id + " and PW: " + userDb.pw + " found");
+                var usr = getUserMed(userDb);
                 var json = JSON.stringify({ cmd: 'setUserSettings', data: usr });
                 // broadcast message to all connected clients
                 connections.forEach(function (conn, key) {
@@ -502,7 +528,7 @@ wsServer.on('request', function (request) {
         });
     }
 
-    function onChat(message) {
+    function onUserChat(message) {
         if (loggedOn) {
             console.log((new Date()) + ' Received Message from ' + message.data.name + ': ' + message.value);
             var usr = getUserMed(message.data);
@@ -514,7 +540,7 @@ wsServer.on('request', function (request) {
         }
     }
 
-    function importImage(message) {
+    function onImportImage(message) {
         // get the image from S3
         var fileKey = json.fileKey;
         s3Helper.getFile(fileKey, imagesFilePath, function() {

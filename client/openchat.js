@@ -712,7 +712,7 @@ $(function () {
 	$("#dialog-settings").dialog({
 		dialogClass:'bgTransparency',
         autoOpen: false,
-        height: 650,
+        height: 630,
         width: 480,
         modal: true,
 	    show: 'explode',
@@ -742,6 +742,13 @@ $(function () {
 		        	CURRENTUSER.email = userEmail.val();
 		        	CURRENTUSER.pw =  passwordSettings.val();
 		        	CURRENTUSER.windowTransparency = $("input#chatWindowTransparency").val();
+		        	// get the languages
+		        	var languages = [];
+					var $selected = $('#userLanguages option:selected');
+					$selected.each(function(){
+						languages.push( $(this).text() );
+					});
+					CURRENTUSER.languages = languages;
 
 					function updateMarkerAndServer(user)
 					{
@@ -821,10 +828,20 @@ $(function () {
 		        	{
 		        		userImage.attr("src", 'https://s3.amazonaws.com/zeitgeistmedia/iconUser.png');
 		        	}
-		        	if(user.windowTransparency)
+		        	if(user.windowTransparency) {
 		        		valTransparency = user.windowTransparency;
-		        	
+		        	}
 		        	$("input#chatWindowTransparency").val(valTransparency);
+					// languages
+					var $languages = $('select#userLanguages');
+					$languages.val(user.languages);
+					$languages.trigger("chosen:updated");
+/*
+					// interests
+					var $interests = $('select#userInterests');
+					$interests.val(user.interests);
+					$interests.trigger("chosen:updated");
+*/		        	
 				}				
 			});
         	
