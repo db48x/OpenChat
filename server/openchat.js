@@ -244,40 +244,37 @@ var loggedOn = false;
 
 // collection class for active users
 var Collection = function () {
-    // constructor
     this.count = 0;
     this.collection = {}; // create the collection
+    this.has = function (prop) {
+        return Object.hasOwnProperty.call(this.collection, prop);
+    };
     this.add = function (key, item) {
-        if (this.collection[key] !== undefined)
-        	return undefined;
         this.collection[key] = item;
         return ++this.count;
     };
     this.remove = function (key) {
-        if (this.collection[key] == undefined) 
-        	return undefined;
+        if (!this.has(key)) 
+            return undefined;
         delete this.collection[key];
         return --this.count;
     };
     this.item = function (key) {
-        return this.collection[key];
+        if (this.has(key))
+            return this.collection[key];
+        return undefined;
     };
     this.forEach = function(callback) {
-        for(var key in this.collection)
+        if (!callback)
+            return;
+        for (var key in this.collection)
         {
-            if(this.collection.hasOwnProperty(key))
+            if (this.has(key))
             {
                 callback(this.collection[key], key);
             }
         }
     };
-    this.jsonColl = function() {
-		var jsonObj = [];
-        this.forEach(function (user, key) {
-			jsonObj.push(user);
-		});
-		return JSON.stringify(jsonObj);
-	};
 };
 
 //var clients = [];
