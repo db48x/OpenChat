@@ -212,35 +212,38 @@ var loggedOn = false;
 // collection class for active users
 function Collection(initial) {
     this.count = 0;
-    this.collection = Object.create(null);    
-    Object.keys(initial).forEach(function (k) { this.collection[k] = initial[k]; });
-        
+    var collection = Object.create(null);    
+    
+    if (initial) {
+        Object.keys(initial).forEach(function (k) { collection[k] = initial[k]; });
+    }
+    
     this.has = function (prop) {
-        return Object.hasOwnProperty.call(this.collection, prop);
+        return Object.hasOwnProperty.call(collection, prop);
     };
     this.add = function (key, item) {
-        this.collection[key] = item;
+        collection[key] = item;
         return ++this.count;
     };
     this.remove = function (key) {
         if (!this.has(key)) 
             return undefined;
-        delete this.collection[key];
+        delete collection[key];
         return --this.count;
     };
     this.item = function (key) {
-        return this.collection[key];
+        return collection[key];
     };
     this.forEach = function (callback) {
         if (!callback || typeof callback != 'function')
             return;
         this.keys()
             .forEach(function (k) {
-                         callback(k, this.item(k));
+                         callback(k, collection[k]);
                      });
     };
     this.keys = function () {
-        return Object.keys(this.collection);
+        return Object.keys(collection);
     };
 };
 
