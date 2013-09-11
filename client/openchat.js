@@ -159,7 +159,6 @@ $(function () {
 	
 	// start class BinaryUpload
 	function BinaryUpload() {
-		//var uri = URI_WEBSOCKET + ':1337/binary-endpoint';
 		var uri = URI_WEBSOCKET + ':1338/binary-endpoint';
 	    var client = new BinaryClient(uri);
 	    
