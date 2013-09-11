@@ -210,9 +210,11 @@ var chathistory = [];
 var loggedOn = false;
 
 // collection class for active users
-var Collection = function (initial) {
+function Collection(initial) {
     this.count = 0;
-    this.collection = initial || {}; // create one if nothing was passed in
+    this.collection = Object.create(null);    
+    Object.keys(initial).forEach(function (k) { this.collection[k] = initial[k]; });
+        
     this.has = function (prop) {
         return Object.hasOwnProperty.call(this.collection, prop);
     };
@@ -227,25 +229,18 @@ var Collection = function (initial) {
         return --this.count;
     };
     this.item = function (key) {
-        if (this.has(key))
-            return this.collection[key];
-        return undefined;
+        return this.collection[key];
     };
     this.forEach = function (callback) {
-        if (!callback)
+        if (!callback || typeof callback != 'function')
             return;
-        for (var key in this.collection)
-        {
-            if (this.has(key))
-            {
-                callback(this.collection[key], key);
-            }
-        }
+        this.keys()
+            .forEach(function (k) {
+                         callback(k, this.item(k));
+                     });
     };
     this.keys = function () {
-        var keys = [];
-        this.forEach(function (value, key) { keys.push(key); });
-        return keys;
+        return Object.keys(this.collection);
     };
 };
 
@@ -328,7 +323,7 @@ wsServer.on('request', function (request) {
            	connections.item(connId).sendUTF(json);
 			// broadcast addUser message to all other clients
 	        var json = JSON.stringify({ cmd: 'addUser', data: usr });	        
-	        connections.forEach(function (conn, key) {
+	        connections.forEach(function (key, conn) {
 	        	console.log('connections.forEach key: ' + key);
 			    if(key != connId)
 					conn.sendUTF(json);
@@ -363,7 +358,7 @@ wsServer.on('request', function (request) {
 				}
 				// broadcast removeUser message to all other clients
 		        var json = JSON.stringify({ cmd: 'removeUser', data: usr });
-		        connections.forEach(function (conn, key) {
+		        connections.forEach(function (key, conn) {
 				    if(key != connId)
 				    {
 				    	try {
@@ -495,7 +490,7 @@ wsServer.on('request', function (request) {
                 var usr = getUserMed(user);
                 var json = JSON.stringify({ cmd: 'setUserSettings', data: usr });
                 // broadcast message to all connected clients
-                connections.forEach(function (conn, key) {
+                connections.forEach(function (key, conn) {
                     conn.sendUTF(json);
                 });
             }
@@ -508,7 +503,7 @@ wsServer.on('request', function (request) {
             var usr = getUserMed(message.data);
             var jsonMsg = JSON.stringify({ cmd: 'userMessage', value: message.value, data: usr });
             // broadcast message to all connected clients
-            connections.forEach(function (conn, key) {
+            connections.forEach(function (key, conn) {
                 conn.sendUTF(jsonMsg);
             });
         }
