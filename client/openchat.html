@@ -54,22 +54,73 @@
 			    border: 0 none;
 			    color: #BDBDBD;
 			    height: 1px;
-			}        	
+			}   
+			
+			div.panelRight {
+				display:none;
+				position: absolute;
+				top: 0;
+				width:250px;
+				right:0%;
+				height: 100%;
+				z-index: 5;
+				margin: 0;
+				overflow:hidden;
+				background-color:lightgray;
+				opacity : .7;
+			}
+			div.panelTop {
+				display:none;
+				position: absolute;
+				top: 0;
+				width:100%;
+				right:0%;
+				height: 45px;
+				z-index: 6;
+				margin: 0;
+				overflow:hidden;
+				background-color:lightgray;
+				opacity : .8;
+			}
+			div.panel {
+				display:none;
+				font-family:arial;
+				color:black;
+				padding:20px;
+				overflow:hidden;
+			}
             </style>
 	</head>
 	<body>
 		<script type="text/javascript" src="//api.filepicker.io/v1/filepicker.js"></script>
-	    <div id="toolbar" class="ui-widget-header ui-corner-all">
-		  <button id="btnLocalImages" type="file">Open Images</button>
-		  <div style='height: 0px;width: 0px;display: none;'><input id="selectFiles" type="file" multiple /></div>
-		  <button id="btnImportImages">Import Images</button>
-		  <button id="btnImportBlog">Import Note/Blog</button>
-		  <button id="btnChat">Chat</button>
-		  <button id="btnSettings">Settings</button>
-		  <button id="btnHelp">Help</button>		 
-		  <button id="btnLogin">Login</button>		 
-		  <button id="btnLogout">Logout</button>		 
-		  <span style="font-family:Arial, Helvetica, sans-serif" id="txtLoginName">Not Logged In</span>
+		<div class="panelTop">
+		    <div id="toolbar" class="ui-widget-header ui-corner-all">
+				<button id="btnLocalImages" type="file">Open Images</button>
+				<div style='height: 0px;width: 0px;display: none;'><input id="selectFiles" type="file" multiple /></div>
+				<button id="btnImportImages">Import Images</button>
+				<button id="btnImportBlog">Import Note/Blog</button>
+				<button id="btnChat">Chat</button>
+				<button id="btnSettings">Settings</button>
+				<button id="btnFilters">Filters</button>		 
+				<button id="btnLogin">Login</button>		 
+				<button id="btnLogout">Logout</button>		 
+				<span style="font-family:Arial, Helvetica, sans-serif" id="txtLoginName">Not Logged In</span>
+			</div>
+		</div>
+		<div class="panelRight">
+			<div class="panel">
+				<br><br>
+				<p>Show users that speak:</p> 
+				<select id="userLanguages" class="chosenPanel" multiple="true">
+					<option selected>English</option>
+					<option>Spanish</option>
+					<option>German</option>
+					<option>French</option>
+				</select>            
+				<hr>
+				<p>Online Users</p><hr>
+				<p>Offline Users</p><hr>
+		    </div>
 		</div>
 		 
  		<div id="map" style="height: 90%"></div>
@@ -121,8 +172,8 @@
 						<option>French</option>
 					</select>            
 	                <hr>
-					<label for="chatWindowTransparency">Windows Transparent</label>
-					<input type="range" id="chatWindowTransparency" min="0" step=".5" max="1" value=".5" style="width: 150px;"/>Opaque
+					<label for="windowTransparency">Windows Transparent</label>
+					<input type="range" id="windowTransparency" min="0" step=".5" max="1" value=".5" style="width: 150px;"/>Opaque
 	            </fieldset>
 	        </form>
 	    </div>		

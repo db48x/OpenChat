@@ -6,17 +6,22 @@ $(function () {
 	var CURRENTUSER = {};
 	var CURRENTPOS = {lat: 0, lng: 0};
 
+	
 	$(".chosen").chosen();	
+	$(".chosenPanel").chosen({width: '200px'});	// workaround for issue with chosen (26e12ed)
 
 	function clearCurrentUser() {
 		CURRENTUSER = { _id: '', email: '', pw: '', lat: 0, lng: 0, userImageUrl: '', windowTransparency: '.5' };
 	}
-
+	clearCurrentUser();
 	function getUserMed(user) {
 		return { _id: user._id, name: user.name, lat: user.lat, lng: user.lng, userImageUrl: user.userImageUrl};		
-	};
+	}
 	function getUserShort(user) {
 		return {_id: user._id, name: user.name };
+	}
+	function setWindowsTransparency(val) {
+		$(".bgTransparency").css('background', 'rgba(255, 255, 255, ' + val + ')'); 
 	}
 	
 	var lmap = new LMap();	
@@ -143,6 +148,10 @@ $(function () {
 	        
 	        // zoom in two units
 	        //map.zoomIn(2);
+	        var showHide = ($('div.panelTop').css('display') == 'none') ? 'show' : 'hide';
+	        $('div.panelTop').animate({
+	            'height': showHide
+	        }, 300);
 	        
 	    });
 	}
@@ -673,7 +682,7 @@ $(function () {
 	                		CURRENTUSER = json.data;
 	                		CURRENTUSER.pw = pw;
 	                		// set transparency
-	                		$(".bgTransparency").css('background', 'rgba(255, 255, 255, '+ CURRENTUSER.windowTransparency  +')'); 
+	                		setWindowsTransparency(CURRENTUSER.windowTransparency); 
 	                		var locUser = new L.LatLng(CURRENTUSER.lat, CURRENTUSER.lng);                		
 	                		lmap.addUserMarker(CURRENTUSER._id, locUser, CURRENTUSER.name, CURRENTUSER.email, CURRENTUSER.userImageUrl);
 	                		$("#txtLoginName").text(json.data.name);
@@ -712,7 +721,7 @@ $(function () {
 	$("#dialog-settings").dialog({
 		dialogClass:'bgTransparency',
         autoOpen: false,
-        height: 630,
+        height: 650,
         width: 480,
         modal: true,
 	    show: 'explode',
@@ -741,7 +750,7 @@ $(function () {
 		        	CURRENTUSER.name = userName.val();
 		        	CURRENTUSER.email = userEmail.val();
 		        	CURRENTUSER.pw =  passwordSettings.val();
-		        	CURRENTUSER.windowTransparency = $("input#chatWindowTransparency").val();
+		        	CURRENTUSER.windowTransparency = $("input#windowTransparency").val();
 		        	// get the languages
 		        	var languages = [];
 					var $selected = $('#userLanguages option:selected');
@@ -780,8 +789,7 @@ $(function () {
 						updateMarkerAndServer(CURRENTUSER);		        								
 					}
 							        	
-		        	// reverse the style
-		        	$(".bgTransparency").css('background', 'rgba(255, 255, 255, '+ CURRENTUSER.windowTransparency +')'); 
+		        	setWindowsTransparency(CURRENTUSER.windowTransparency);
 
 					// clear the form inputs
 					passwordSettings.val('');
@@ -795,7 +803,8 @@ $(function () {
 		{
 	        text: "Cancel",
 	        click: function() {
-		        $(".bgTransparency").css('background', 'rgba(255, 255, 255, '+ CURRENTUSER.windowTransparency  +')'); 
+	        	// reverse the style
+		        setWindowsTransparency(CURRENTUSER.windowTransparency);
 	        	$(this).dialog('close');
 	        },
 	        id: 'dialog_cancel_button'
@@ -831,7 +840,7 @@ $(function () {
 		        	if(user.windowTransparency) {
 		        		valTransparency = user.windowTransparency;
 		        	}
-		        	$("input#chatWindowTransparency").val(valTransparency);
+		        	$("input#windowTransparency").val(valTransparency);
 					// languages
 					var $languages = $('select#userLanguages');
 					$languages.val(user.languages);
@@ -851,8 +860,8 @@ $(function () {
 					$('img#imgUserImage').attr('src', base64);
 				});
 			});
-            $("input#chatWindowTransparency").on('input', function (e) {
-            	$(".bgTransparency").css('background', 'rgba(255, 255, 255, '+ $("input#chatWindowTransparency").val() +')'); 
+            $("input#windowTransparency").on('input', function (e) {
+            	setWindowsTransparency($(this).val());
 			});
         },    	        
         close: function () {
@@ -960,11 +969,22 @@ $(function () {
         	$("#dialog-settings").dialog("open");
 		}
     });   
-    $("#btnHelp").button().click(function() {
-		if (verifyLoggedIn()) {
-        	alert('btnHelp');
-		}
-    });   
+    $("#btnFilters").button().click(function() {        
+        if($('div.panelRight').css('display') == 'none') {
+	        $('div.panelRight').animate({
+	            'width': 'show'
+	        }, 300, function() {
+	            $('div.panel').fadeIn(500);
+	        });
+		} else {
+	       $('div.panel').fadeOut(500, function() {
+	            $('div.panelRight').animate({
+	                'width': 'hide'
+	            }, 300);
+	        });
+	 	}
+    });
+    
     $("#btnLogin").button().click(function() {
 		$("#dialog-login").dialog("open");
     }); 
@@ -974,7 +994,7 @@ $(function () {
 			server.send(json);
 		}
     });      
-    
+	  
     $('#selectFiles').change(function (e) {
     	localImages.loadFiles(this.files);
     });
