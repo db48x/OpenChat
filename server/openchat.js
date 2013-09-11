@@ -379,10 +379,10 @@ wsServer.on('request', function (request) {
 	};
 	
 
-	// json structure:
-	//  {
-	//		cmd: userLogin / addUser / userMsg 
-	//		value: true / false / message
+    // json structure:
+    //  {
+    //		cmd: userLogin / addUser / userMsg 
+    //		value: true / false / message
     //		data : userInfo data { id, name, email, lat, lng, picUrl }
     //  }
     var protocol = new Collection({ userLogin: userLogin,
@@ -511,7 +511,7 @@ wsServer.on('request', function (request) {
 
     function importImage(message) {
         // get the image from S3
-        var fileKey = json.fileKey;
+        var fileKey = message.fileKey;
         s3Helper.getFile(fileKey, imagesFilePath, function() {
             console.log('Successfully downloaded image');
             console.log('crop the image');
@@ -533,9 +533,10 @@ wsServer.on('request', function (request) {
     connection.on('message', function (message) {
         if (message.type === 'utf8') { // accept only text
             var json = JSON.parse(message.utf8Data);
-            if (protocol.keys().indexOf(json.cmd) !== -1) {
-                console.log(json.data);
-                protocol.item(json.cmd)(json);
+            var cmd;
+            if ((cmd = protocol.item(json.cmd))) {
+                console.log(json);
+                cmd(json);
             }
             else
                 console.log("unknown command: "+ json.cmd +"["+ protocol.keys() +"]");
