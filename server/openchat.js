@@ -15,7 +15,7 @@ var collections = ["users", "chathistory"];
 var mongojs = require('mongojs');
 var ObjectId = mongojs.ObjectId;
 var db = mongojs.connect(databaseUrl, collections);
- 
+var Collection = require('../common/collection.js');
  
 // ------------------------------------------------------------------------------------------
 var webSocketsServerPortImg = 1338;
@@ -208,44 +208,6 @@ server.listen(webSocketsServerPort, function() {
 // latest 100 messages
 var chathistory = [];
 var loggedOn = false;
-
-// collection class for active users
-function Collection(initial) {
-    this.count = 0;
-    var collection = Object.create(null);    
-    
-    if (initial) {
-        Object.keys(initial).forEach(function (k) { collection[k] = initial[k]; });
-    }
-    
-    this.has = function (prop) {
-        return Object.hasOwnProperty.call(collection, prop);
-    };
-    this.add = function (key, item) {
-        collection[key] = item;
-        return ++this.count;
-    };
-    this.remove = function (key) {
-        if (!this.has(key)) 
-            return undefined;
-        delete collection[key];
-        return --this.count;
-    };
-    this.item = function (key) {
-        return collection[key];
-    };
-    this.forEach = function (callback) {
-        if (!callback || typeof callback != 'function')
-            return;
-        this.keys()
-            .forEach(function (k) {
-                         callback(k, collection[k]);
-                     });
-    };
-    this.keys = function () {
-        return Object.keys(collection);
-    };
-};
 
 //var clients = [];
 var connections = new Collection();
