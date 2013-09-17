@@ -267,121 +267,143 @@ $(function () {
 	
 	// start class ServerConnection
 	function ServerConnection() {
-		// constructor code
-		var _this = this;
-		var uri = URI_WEBSOCKET + ':1337';
-        var connection = new WebSocket(uri);
-		this.callback = {};
-        var input = $('#input');
-        input.removeAttr('disabled').focus();
+            var protocol = new Collection({userLogin: userLogin,
+                                           userLogOut: userLogOut,
+                                           addUser: addUser,
+                                           removeUser: removeUser,
+                                           users: users,
+                                           userMessage: userMessage,
+                                           importImage: importImage,
+                                           getUserSettings: getUserSettings,
+                                           setUserSettings: setUserSettings,
+                                           chatHistory: chatHistory
+                                          });
 
-		this.send = function (json, cb) {
-			//var json = JSON.stringify({ imageData: data });
-			this.callback = cb;
-			connection.send(json);
-		};
+	    // constructor code
+	    var _this = this;
+	    var uri = URI_WEBSOCKET + ':1337';
+            var connection = new WebSocket(uri);
+	    this.callback = {};
+            var input = $('#input');
+            input.removeAttr('disabled').focus();
+
+	    this.send = function (json, cb) {
+		//var json = JSON.stringify({ imageData: data });
+		this.callback = cb;
+		connection.send(json);
+	    };
 		
-		this.chatMessage = function(msg) {
-			// TODO instead of getUserMed send getUserShort and use the cached user data.
-			var json = JSON.stringify({ cmd: 'userMessage', value: msg , data: getUserMed(CURRENTUSER)});
-			// send the message
-			connection.send(json);
-		};
+            this.chatMessage = function(msg) {
+		// TODO instead of getUserMed send getUserShort and use the cached user data.
+		var json = JSON.stringify({ cmd: 'userMessage', value: msg , data: getUserMed(CURRENTUSER)});
+		// send the message
+		connection.send(json);
+	    };
 		
 	    connection.onopen = function () {
-			console.log('connection.onopen');
+		console.log('connection.onopen');
 	    };
 	    
-		connection.onerror = function (error) {
+	    connection.onerror = function (error) {
 	        console.log('Sorry, but there\'s some problem connecting to the server.</p>');
 	    };
 	    
-        connection.onmessage = function (message) {
-			var json = '';
-            try {
-                json = JSON.parse(message.data);
-                console.log(JSON.stringify(json));
-            } catch (e) {
-                console.log('This doesn\'t look like a valid JSON: ', message.data);
-                return;
-            }
-            console.log(json.cmd);
-            
-            if (typeof(_this.callback) == 'function')
-        		_this.callback(json);
-
-            switch (json.cmd) {
-                case 'userLogin':
-                    break;
-               case 'userLogOut':
-                	console.log('userLogOut: ' + json.data._id);
-					clearCurrentUser();
-					localStorage.setItem('authenticated', 'false');		
-                	$("#txtLoginName").text("Not Logged In");
-                	// remove my marker
-                	lmap.removeUserMarker(json.data._id);
-					break;
-               case "addUser":
-                    console.log("onmessage addUser");          
-            		var locUser = new L.LatLng(json.data.lat, json.data.lng);
-            		lmap.addUserMarker(json.data._id, locUser, json.data.name, json.data.email, json.data.userImageUrl);  
-            		break;
-			   case "removeUser":
-			   		console.log("onmessage removeUser");
-                	lmap.removeUserMarker(json.data._id);
-			   		break;
-               case "users":
-                    console.log("onmessage users");
+            connection.onmessage = function (message) {
+	        var json = '';
+                try {
+                    json = JSON.parse(message.data);
                     console.log(JSON.stringify(json));
- 					for (var i = 0; i < json.data.length; i++) 
- 					{	
- 						var locUser = new L.LatLng(json.data[i].lat, json.data[i].lng);
-            			lmap.addUserMarker(json.data[i]._id, locUser, json.data[i].name, json.data[i].email, json.data[i].userImageUrl);  
- 					}
-            		break;
-	           case "userMessage":	                
-	                var locOriginator = new L.LatLng(json.data.lat, json.data.lng);
-	                lmap.showOriginatorLoc(locOriginator);
-	                
-	                // animation: loop through the users and show how the message is spread
-	                for (var key in UserMarkers) {
-	                	if(key != undefined)
-	                	{
-	                		var obj = UserMarkers[key];
-	               			lmap.showBezierAnim(locOriginator, obj._latlng);
-	               		}
-	               	}
-	                addChatMessage(json.data.name, json.value, json.data.userImageUrl);
-	                break;
-                case 'importImage':
-                    console.log(JSON.stringify(json));
-                    // add marker todo
-                    var picLoc = new L.LatLng(json.latlng.lat, json.latlng.lng);
-                    lmap.addImageMarker(picLoc, '', json.url, json.fileKey);
-                    break;
-               case 'getUserSettings':
-                	console.log('getUserSettings');                	                	
-                    break;
-               case 'setUserSettings':
-                	console.log('setUserSettings');
-	        		refreshUserMarker(json.data);
-                    break;
-	           case "chatHistory":	                
-                	console.log(json);
-					for (var i = 0; i < json.value.length; i++ ) { 
-              			addChatMessage(json.value[i].name, json.value[i].msg, USERIMAGEURL + json.value[i].userId, 0);
-                    }
-                    break;
-            }
-		};
-        input.keydown(function (e) {
-            if (e.keyCode === 13) {
-                var msg = $(this).val();
-                if (!msg) {
+                } catch (e) {
+                    console.log('This doesn\'t look like a valid JSON: ', message.data);
                     return;
                 }
+                console.log(json.cmd);
+                var func;
+                if ((func = protocol.item(json.cmd)))
+                    func(json);
+                if (typeof(_this.callback) == 'function')
+                    _this.callback(json);
+	    };
+
+            input.keydown(function (e) {
+                if (e.keyCode === 13) {
+                    var msg = $(this).val();
+                    if (!msg) {
+                        return;
+                    }
+                }
+            });
+
+            function userLogin(json) {
             }
-        });
+            
+            function userLogOut(json) {
+                console.log('userLogOut: ' + json.data._id);
+	        clearCurrentUser();
+		localStorage.setItem('authenticated', 'false');		
+                $("#txtLoginName").text("Not Logged In");
+                // remove my marker
+                lmap.removeUserMarker(json.data._id);
+	    }
+            
+            function addUser(json) {
+                console.log("onmessage addUser");          
+                var locUser = new L.LatLng(json.data.lat, json.data.lng);
+                    lmap.addUserMarker(json.data._id, locUser, json.data.name, json.data.email, json.data.userImageUrl);  
+                }
+	    
+            function removeUser(json) {
+                console.log("onmessage removeUser");
+                lmap.removeUserMarker(json.data._id);
+	    }
+            
+            function users(json) {
+                console.log("onmessage users");
+                console.log(JSON.stringify(json));
+ 		for (var i = 0; i < json.data.length; i++) 
+ 		{	
+ 		    var locUser = new L.LatLng(json.data[i].lat, json.data[i].lng);
+            	    lmap.addUserMarker(json.data[i]._id, locUser, json.data[i].name, json.data[i].email, json.data[i].userImageUrl);  
+ 		}
+            }
+	    
+            function userMessage(json) {
+	        var locOriginator = new L.LatLng(json.data.lat, json.data.lng);
+	        lmap.showOriginatorLoc(locOriginator);
+	                
+	        // animation: loop through the users and show how the message is spread
+	        for (var key in UserMarkers) {
+	            if(key != undefined)
+	            {
+	                var obj = UserMarkers[key];
+	               	lmap.showBezierAnim(locOriginator, obj._latlng);
+	            }
+	        }
+	        addChatMessage(json.data.name, json.value, json.data.userImageUrl);
+	    }
+            
+            function importImage(json) {
+                console.log(JSON.stringify(json));
+                // add marker todo
+                var picLoc = new L.LatLng(json.latlng.lat, json.latlng.lng);
+                lmap.addImageMarker(picLoc, '', json.url, json.fileKey);
+            }
+            
+            function getUserSettings(json) {
+                console.log('getUserSettings');                	                	
+            }
+            
+            function setUserSettings(json) {
+                console.log('setUserSettings');
+	        refreshUserMarker(json.data);
+            }
+
+	    function chatHistory(json) {
+                console.log(json);
+		for (var i = 0; i < json.value.length; i++ ) { 
+              	    addChatMessage(json.value[i].name, json.value[i].msg, USERIMAGEURL + json.value[i].userId, 0);
+                }
+            }
 	}
 	// end class ServerConnection
 	var server = new ServerConnection();
