@@ -10,8 +10,8 @@ var http = require('http');
 var BinaryServer = require('binaryjs').BinaryServer;
 
 // mongodb stuff
-var databaseUrl = "mydb"; // "username:password@example.com/mydb"
-var collections = ["users", "chathistory"];
+var databaseUrl = "mapboard"; // "username:password@example.com/mapboard"
+var collections = ["users", "chats"];
 var mongojs = require('mongojs');
 var ObjectId = mongojs.ObjectId;
 var db = mongojs.connect(databaseUrl, collections);
@@ -254,15 +254,16 @@ wsServer.on('request', function (request) {
 //        connection.sendUTF(JSON.stringify({ cmd: 'history', data: chathistory }));
 //    }
 
-	(function getOnlineUsers()
+
+	(function broadcastOnlineUsers()
 	{
 		var projections =  { _id: 1, name: 1, lat: 1, lng: 1, userImageUrl: 1};	
 		db.users.find( {online: true}, projections, function(err, users) {
 			if( err || !users) {			// err, user not found
-				console.log("getOnlineUsers, no online users found");
+				console.log("broadcastOnlineUsers, no online users found");
 			}
 			else {				
-				console.log("getOnlineUsers, found " + users.length + " online users.");
+				console.log("broadcastOnlineUsers, found " + users.length + " online users.");
 				//console.log("getOnlineUsers, found users:" + JSON.stringify(users));
     			connection.sendUTF(JSON.stringify({ cmd: 'users', data: users}));
 			}
@@ -377,7 +378,8 @@ user = {
                                     getUserSettings: onGetUserSettings,
                                     setUserSettings: onSetUserSettings,
                                     userMessage: onUserChat,
-                                    importImage: onImportImage
+                                    importImage: onImportImage,
+                                    getChatHistory: onGetChatHistoryReq
                                   });
 
     function onUserLogin(message) {
@@ -490,8 +492,20 @@ user = {
 
     function onUserChat(message) {
         if (loggedOn) {
+        	var user = message.data;
             console.log((new Date()) + ' Received Message from ' + message.data.name + ': ' + message.value);
-            var usr = getUserMed(message.data);
+			// store the data in the chats table
+	        var chatEntry = { channelId: 1,
+	                     userId: new ObjectId(user._id),
+	                     name: user.name,
+	                     msg: message.value,
+	                     timeStamp: (new Date()).toJSON()
+	                   };
+	        db.chats.save(chatEntry, function(err, saved) {
+	            if(err || !saved)
+	                console.log("Chat entry not saved");
+	        });
+            var usr = getUserMed(user);
             var jsonMsg = JSON.stringify({ cmd: 'userMessage', value: message.value, data: usr });
             // broadcast message to all connected clients
             connections.forEach(function (key, conn) {
@@ -520,13 +534,25 @@ user = {
             });
         });
     }
+    
+    function onGetChatHistoryReq(message) {
+		var projections =  { _id: 0, userId: 1, name: 1, msg: 1, timeStamp: 1 };	
+		db.chats.find( {}, projections, {limit: 100 }, function(err, chats) {
+			if( err || !chats) {			// err, user not found
+				console.log("onGetChatHistoryReq failed");
+			}
+			else {				
+    			connection.sendUTF(JSON.stringify({ cmd: 'chatHistory', value: chats }));
+			}
+		});
+    }
 
     connection.on('message', function (message) {
         if (message.type === 'utf8') { // accept only text
             var json = JSON.parse(message.utf8Data);
             var cmd;
             if ((cmd = protocol.item(json.cmd))) {
-                console.log(json);
+                // console.log(json);
                 cmd(json);
             }
             else

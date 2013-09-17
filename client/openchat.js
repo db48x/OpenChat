@@ -5,7 +5,21 @@ $(function () {
 	var UserMarkers = {};
 	var CURRENTUSER = {};
 	var CURRENTPOS = {lat: 0, lng: 0};
-
+	var USERIMAGEURL = "https://s3.amazonaws.com/zeitgeistmedia/";
+	var REQCHATHISTORY = false;		
+	var UsersCollection = function() {
+		var filterJson = '';
+		this.filter = function(json) {
+			filterJson = json;
+		};
+	};
+	UsersCollection.prototype = new Collection();
+	var Users = new UsersCollection();
+	
+	Users.add('foo', 1);
+	console.log(Users.has('foo'));
+	console.log(Users.has('nofoo'));
+	
 	
 	$(".chosen").chosen();	
 	$(".chosenPanel").chosen({width: '200px'});	// workaround for issue with chosen (26e12ed)
@@ -352,6 +366,12 @@ $(function () {
                 	console.log('setUserSettings');
 	        		refreshUserMarker(json.data);
                     break;
+	           case "chatHistory":	                
+                	console.log(json);
+					for (var i = 0; i < json.value.length; i++ ) { 
+              			addChatMessage(json.value[i].name, json.value[i].msg, USERIMAGEURL + json.value[i].userId, 0);
+                    }
+                    break;
             }
 		};
         input.keydown(function (e) {
@@ -366,7 +386,9 @@ $(function () {
 	// end class ServerConnection
 	var server = new ServerConnection();
 		
-    function addChatMessage(name, chatMessage, userImageUrl) {
+    function addChatMessage(name, chatMessage, userImageUrl, timeout) {
+    	if(timeout===undefined) 
+			timeout = 500;
 		var imageHtml = "";
 		if(userImageUrl != undefined) {
 			imageHtml = "<td><img style='width: 24px; height: 24px;' src='" + userImageUrl + "'/></td>";
@@ -376,7 +398,7 @@ $(function () {
 		"<td>" + name + ":</td>" +
 		"<td>" + chatMessage + "</td>" +
 		"</tr>" );
-		$(".ui-dialog-content").animate({scrollTop: $("#chatTable").height()}, 500);
+		$(".ui-dialog-content").animate({scrollTop: $("#chatTable").height()}, timeout);
 	}
 	
 	// start FeatherEditor
@@ -893,7 +915,15 @@ $(function () {
             	}
 	        },
 	        id: 'dialog_send_button'
-    	}]
+  		}],
+        open: function() {
+        	if(!REQCHATHISTORY) {
+  				var json = JSON.stringify({ cmd: 'getChatHistory'});
+				// send the message
+				server.send(json);
+				REQCHATHISTORY = true;
+			}
+		}
 	});
     $('#dialog-chat').parents('.ui-dialog').find('.ui-dialog-buttonpane')
     .prepend('<input type=\'text\' id=\'messageInput\' class=\'dialogTextInput\'/>');
