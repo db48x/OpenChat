@@ -77,7 +77,8 @@ $(function () {
 	    //var m = new R.Marker(LOCUSER);
 	    //map.addLayer(m);
 
-	    this.addUserMarker = function(id, latlng, name, email, userImageUrl) {
+	    this.addUserMarker = function(user) {
+                var id = user._id, latlng = new L.LatLng(user.lat, user.lng), name = user.name, email = user.email, userImageUrl = user.userImageUrl;
 	        var msgMarker = name;
 	        if (userImageUrl != '') {
 	            msgMarker = "<img id=" + id + " src='" + userImageUrl + "' style='width: 90px; height: 100px;' /><br>" + name;
@@ -349,7 +350,7 @@ $(function () {
             function addUser(json) {
                 console.log("onmessage addUser");          
                 var locUser = new L.LatLng(json.data.lat, json.data.lng);
-                    lmap.addUserMarker(json.data._id, locUser, json.data.name, json.data.email, json.data.userImageUrl);  
+                    lmap.addUserMarker(json.data);
                 }
 	    
             function removeUser(json) {
@@ -360,12 +361,8 @@ $(function () {
             function users(json) {
                 console.log("onmessage users");
                 console.log(JSON.stringify(json));
- 		for (var i = 0; i < json.data.length; i++) 
- 		{	
- 		    var locUser = new L.LatLng(json.data[i].lat, json.data[i].lng);
-            	    lmap.addUserMarker(json.data[i]._id, locUser, json.data[i].name, json.data[i].email, json.data[i].userImageUrl);  
- 		}
-            }
+                json.data.forEach(lmap.addUserMarker);
+            };
 	    
             function userMessage(json) {
 	        var locOriginator = new L.LatLng(json.data.lat, json.data.lng);
@@ -631,7 +628,7 @@ $(function () {
 		// remove and add the user marker with the new settings
 		lmap.removeUserMarker(user._id);
 		var locUser = new L.LatLng(user.lat, user.lng);   
-		lmap.addUserMarker(user._id, locUser, user.name, user.email, (user.userImageUrl === '')?'':(user.userImageUrl + '?burst='+Math.random()));				        	
+		// TODO STUFF lmap.addUserMarker(user._id, locUser, user.name, user.email, (user.userImageUrl === '')?'':(user.userImageUrl + '?burst='+Math.random()));				        	
 	}
 
 // ------------------------------ dialog - generic functions ------------------------------
@@ -727,7 +724,7 @@ $(function () {
 	                		// set transparency
 	                		setWindowsTransparency(CURRENTUSER.windowTransparency); 
 	                		var locUser = new L.LatLng(CURRENTUSER.lat, CURRENTUSER.lng);                		
-	                		lmap.addUserMarker(CURRENTUSER._id, locUser, CURRENTUSER.name, CURRENTUSER.email, CURRENTUSER.userImageUrl);
+	                		lmap.addUserMarker(CURRENTUSER);
 	                		$("#txtLoginName").text(json.data.name);
 							// if true, store that stuff in localstorage
 							localStorage.setItem('authenticated', 'true');       
