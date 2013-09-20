@@ -2,7 +2,7 @@ $(function () {
 	// globals 
     var BASE64_MARKER = ';base64,';
 	var URI_WEBSOCKET = 'ws://' + location.host;
-	var UserMarkers = {};
+	var USERMARKERS = {};
 	var CURRENTUSER = {};
 	var CURRENTPOS = {lat: 0, lng: 0};
 	var USERIMAGEURL = "https://s3.amazonaws.com/zeitgeistmedia/";
@@ -40,7 +40,7 @@ $(function () {
 	
 	var lmap = new LMap();	
     // start class LMap
-    function LMap() {
+        function LMap() {
 		// constructor
 		var LeafIcon = L.Icon.extend({
 		    options: {
@@ -81,12 +81,12 @@ $(function () {
                 var id = user._id, latlng = new L.LatLng(user.lat, user.lng), name = user.name, email = user.email, userImageUrl = user.userImageUrl;
 	        var msgMarker = name;
 	        if (userImageUrl != '') {
-	            msgMarker = "<img id=" + id + " src='" + userImageUrl + "' style='width: 90px; height: 100px;' /><br>" + name;
+	            msgMarker = "<img id=" + id + " src='" + userImageUrl + '?burst=' + Math.random() + "' style='width: 90px; height: 100px;' /><br>" + name;
 	        }
 	        markerIcon = {icon: blueIcon};
 	        if (id == CURRENTUSER._id) {
 		        if (userImageUrl != '') 
-		            msgMarker = "<img id=" + id + " onclick='window.launchEditor(\""+ id + "\", this.src);' src='" + userImageUrl + "' style='width: 90px; height: 100px;' /><br>" + name;
+		            msgMarker = "<img id=" + id + " onclick='window.launchEditor(\""+ id + "\", this.src);' src='" + userImageUrl + '?burst=' + Math.random() + "' style='width: 90px; height: 100px;' /><br>" + name;
 	        	markerIcon = {icon: greenIcon};
 			}	        
 	        var marker = L.marker(latlng, markerIcon).addTo(map).bindPopup(msgMarker).openPopup();
@@ -96,24 +96,28 @@ $(function () {
 				marker.closePopup(); 
 			}, 3000);
 
-	        UserMarkers[id] = marker;
+	        USERMARKERS[id] = marker;
 	    };
 	    this.removeUserMarker = function(id) {
-	        var marker = UserMarkers[id]; 
+	        var marker = USERMARKERS[id]; 
 	    	//clusterUsers.removeLayer(marker);
 	    	if(marker != undefined)
 	    	{
 	    		map.removeLayer(marker);
-	        	delete UserMarkers[id];
+	        	delete USERMARKERS[id];
 	        }
 	    };
+            this.refreshUserMarker = function(user) {
+		// remove and add the user marker with the new settings
+		this.removeUserMarker(user._id);
+		this.addUserMarker(user);
+	    };  
 	    this.addImageMarker = function(latlng, msg, imgSrc, imgId) {
 	        var msgMarker = msg;
 	        if (imgSrc) {
 	            msgMarker = "<img id=" + imgId + " onclick='window.launchEditor(\""+ imgId + "\", this.src);' src='" + imgSrc + "' style='width: 100px; height: 100px;' /><br>";
 	        }
-	        // TODO user a cluster to group the images
-	        //return cluster.addLayer(L.marker(latlng).bindPopup(msgMarker));
+	        // TODO user a cluster to group the images //return cluster.addLayer(L.marker(latlng).bindPopup(msgMarker));
         	markerIcon = {icon: redIcon};
 	        var marker = L.marker(latlng, markerIcon).addTo(map).bindPopup(msgMarker).openPopup();
 			setTimeout(function(){
@@ -209,7 +213,6 @@ $(function () {
 	        //});
 	    };
 		this.uploadDataURI = function(dataURI, fileName, fileType, callback) {
-			// TODO determine the image time instead of hard coding
 		  	var blob = this.b64toBlob(dataURI, fileType);
 
 			var reader = new FileReader(); // to read file contents
@@ -285,11 +288,9 @@ $(function () {
 	    var uri = URI_WEBSOCKET + ':1337';
             var connection = new WebSocket(uri);
 	    this.callback = {};
-            var input = $('#input');
-            input.removeAttr('disabled').focus();
-
 	    this.send = function (json, cb) {
 		//var json = JSON.stringify({ imageData: data });
+                // wrap  into a 'payload' message
 		this.callback = cb;
 		connection.send(json);
 	    };
@@ -326,15 +327,6 @@ $(function () {
                     _this.callback(json);
 	    };
 
-            input.keydown(function (e) {
-                if (e.keyCode === 13) {
-                    var msg = $(this).val();
-                    if (!msg) {
-                        return;
-                    }
-                }
-            });
-
             function userLogin(json) {
             }
             
@@ -369,10 +361,10 @@ $(function () {
 	        lmap.showOriginatorLoc(locOriginator);
 	                
 	        // animation: loop through the users and show how the message is spread
-	        for (var key in UserMarkers) {
+	        for (var key in USERMARKERS) {
 	            if(key != undefined)
 	            {
-	                var obj = UserMarkers[key];
+	                var obj = USERMARKERS[key];
 	               	lmap.showBezierAnim(locOriginator, obj._latlng);
 	            }
 	        }
@@ -392,7 +384,7 @@ $(function () {
             
             function setUserSettings(json) {
                 console.log('setUserSettings');
-	        refreshUserMarker(json.data);
+	        lmap.refreshUserMarker(json.data);
             }
 
 	    function chatHistory(json) {
@@ -436,7 +428,7 @@ $(function () {
 				binaryUpload.uploadDataURI(data, imageID, '', function(url){
         			console.log('userImageFile uploaded callback dialog settings, url: ' + url);
         			if(imageID == CURRENTUSER._id) { 
-						refreshUserMarker(CURRENTUSER);
+						lmap.refreshUserMarker(CURRENTUSER);
 					} else {
 						var img = document.getElementById(imageID);
 						img.src = url + '?burst='+Math.random();
@@ -624,15 +616,8 @@ $(function () {
 	// end class filepicker	
 	var filePickerIO = new FilePickerIO();
 
-	function refreshUserMarker(user) {
-		// remove and add the user marker with the new settings
-		lmap.removeUserMarker(user._id);
-		var locUser = new L.LatLng(user.lat, user.lng);   
-		// TODO STUFF lmap.addUserMarker(user._id, locUser, user.name, user.email, (user.userImageUrl === '')?'':(user.userImageUrl + '?burst='+Math.random()));				        	
-	}
-
 // ------------------------------ dialog - generic functions ------------------------------
-	var 	email = $( "#email" ), 
+        var 	email = $( "#email" ), 
 			password = $( "#password" ),
 			allFields = $( [] ).add( email ).add( password ),
 			tips = $( ".validateTips" );
