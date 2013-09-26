@@ -727,7 +727,7 @@ $(function () {
 							
 		        			// now add our marker
 		        			var pw = CURRENTUSER.pw;
-	                		CURRENTUSER = json.data;
+	                		CURRENTUSER = json.data.user;
 	                		CURRENTUSER.pw = pw;
 	                		// set transparency
 	                		setWindowsTransparency(CURRENTUSER.windowTransparency); 
