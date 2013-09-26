@@ -386,7 +386,7 @@ $(function () {
                 console.log(JSON.stringify(json));
                 // add marker todo
                 var picLoc = new L.LatLng(json.latlng.lat, json.latlng.lng);
-                lmap.addImageMarker(picLoc, '', json.url, json.fileKey);
+                lmap.addImageMarker(picLoc, '', json.url, json.data);
             }
             
             function getUserSettings(json) {
@@ -617,7 +617,7 @@ $(function () {
 				filepicker.store(FPFiles, FPFiles.filename,
 				    function(storedPFFiles){
 				        console.log(JSON.stringify(storedPFFiles));
-						var json = JSON.stringify({ cmd: 'importImage', fileKey: storedPFFiles.key });
+						var json = JSON.stringify({ cmd: 'importImage', data: storedPFFiles.key });
 						server.send(json);			        
 				    }
 				);    			

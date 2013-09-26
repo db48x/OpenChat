@@ -516,7 +516,7 @@ user = {
 
     function onImportImage(message) {
         // get the image from S3
-        var fileKey = message.fileKey;
+        var fileKey = message.data;
         s3Helper.getFile(fileKey, imagesFilePath, function() {
             console.log('Successfully downloaded image');
             console.log('crop the image');
