@@ -254,21 +254,22 @@ wsServer.on('request', function (request) {
 //        connection.sendUTF(JSON.stringify({ cmd: 'history', data: chathistory }));
 //    }
 
-
-	(function broadcastOnlineUsers()
-	{
-		var projections =  { _id: 1, name: 1, lat: 1, lng: 1, userImageUrl: 1};	
-		db.users.find( {online: true}, projections, function(err, users) {
-			if( err || !users) {			// err, user not found
-				console.log("broadcastOnlineUsers, no online users found");
-			}
-			else {				
-				console.log("broadcastOnlineUsers, found " + users.length + " online users.");
-				//console.log("getOnlineUsers, found users:" + JSON.stringify(users));
-    			connection.sendUTF(JSON.stringify({ cmd: 'users', data: users}));
-			}
-		});
-	})();
+    (function broadcastOnlineUsers()
+     {
+         var projections =  { _id: 1, name: 1, lat: 1, lng: 1, userImageUrl: 1 };
+         db.users.find({online: true},
+                       projections,
+                       function (err, users) {
+                       if (err || !users) {                     // err, user not found
+                           console.log("broadcastOnlineUsers, no online users found");
+                       }
+                       else {                   
+                           console.log("broadcastOnlineUsers, found " + users.length + " online users.");
+                           //console.log("getOnlineUsers, found users:" + JSON.stringify(users));
+                           send(connection, { cmd: 'users', data: users });
+                       }
+                   });
+     })();
 	
 	function getUserLong(user) {
 		return { _id: user._id, name: user.name, email: user.email, lat: user.lat, lng: user.lng, userImageUrl: user.userImageUrl, windowTransparency: user.windowTransparency, languages: user.languages};		
@@ -283,65 +284,66 @@ wsServer.on('request', function (request) {
     console.log('before callBackForNotifications called');
     bs.callBackForNotifications(connection);
 
-	this.sendUserLogin = function(loginMsg, connId, user) {
-		var json;
-		if(loginMsg == 'success' || loginMsg == 'successNew') {
-			var usr = getUserMed(user);
-    		json = JSON.stringify({ cmd: 'userLogin', value: loginMsg, data: usr });
-    		           	
-           	loggedOn = true;
-           	// send userLogin only to current client
-           	connections.item(connId).sendUTF(json);
-			// broadcast addUser message to all other clients
-	        var json = JSON.stringify({ cmd: 'addUser', data: usr });	        
-	        connections.forEach(function (key, conn) {
-	        	console.log('connections.forEach key: ' + key);
-			    if(key != connId)
-					conn.sendUTF(json);
-			});
-		}
-		else {	// user login failed
-    		json = JSON.stringify({ cmd: 'userLogin', value: loginMsg });
-    		//clients[clIndex].connection.sendUTF(json);
-    		connections.item(connectionId).sendUTF(json);
-    	}
-	};
-	this.sendUserLogOut = function(connId) {		
+    this.sendUserLogin = function(loginMsg, connId, user) {
+        var json;
+        if (loginMsg == 'success' || loginMsg == 'successNew') {
+            var usr = getUserMed(user);
+            loggedOn = true;
+            // send userLogin only to current client
+            send(connections.item(connId),
+                { cmd: 'userLogin',
+                  value: loginMsg,
+                  data: usr });
+            // broadcast addUser message to all other clients
+            connections.forEach(function (key, conn) {
+                console.log('connections.forEach key: ' + key);
+                    if (key != connId)
+                        send(conn,
+                             { cmd: 'addUser',
+                               data: usr });
+            });
+        }
+        else {  // user login failed
+            send(connections.item(connectionId),
+                 { cmd: 'userLogin', value: loginMsg });
+        }
+    };
 
-    	var argQuery = {connectionId: connId};
-    	var argUpdate = { $set: { online: false, connectionId: null} };						            	
-		db.users.findAndModify( { query: argQuery, update: argUpdate, new: true, upsert: false}, function(err, user) {
-			if( err || !user ) {
-				console.log('ERROR: sendUserLogOut, not able to updated online flag');
-			}
-			else {
-				console.log('sendUserLogOut, updated online flag');
-				console.log('sendUserLogOut for user: ' + JSON.stringify(user));
-				var json;
-		       	loggedOn = false;
-				var usr = getUserShort(user);
-				json = JSON.stringify({ cmd: 'userLogOut', data: usr });
-		       	// send userLogin only to current client
-		    	try {
-					connections.item(connId).sendUTF(json);
-				} catch(e) {
-					console.log(e);
-				}
-				// broadcast removeUser message to all other clients
-		        var json = JSON.stringify({ cmd: 'removeUser', data: usr });
-		        connections.forEach(function (key, conn) {
-				    if(key != connId)
-				    {
-				    	try {
-							conn.sendUTF(json);
-						} catch(e) {
-							console.log(e);
-						}
-					}
-				});
-			}
-		});
-	};
+    this.sendUserLogOut = function(connId) {
+        var argQuery = {connectionId: connId};
+        var argUpdate = { $set: { online: false, connectionId: null} };
+        db.users.findAndModify({ query: argQuery, update: argUpdate, new: true, upsert: false},
+                               function(err, user) {
+                                   if (err || !user ) {
+                                       console.log('ERROR: sendUserLogOut, not able to updated online flag');
+                                   }
+                                   else {
+                                       console.log('sendUserLogOut, updated online flag');
+                                       console.log('sendUserLogOut for user: ' + JSON.stringify(user));
+                                       loggedOn = false;
+                                       var usr = getUserShort(user);
+                                       // send userLogin only to current client
+                                       try {
+                                           send(connections.item(connId),
+                                                { cmd: 'userLogOut', data: usr });
+                                       } catch(e) {
+                                           console.log(e);
+                                       }
+                                       // broadcast removeUser message to all other clients
+                                       connections.forEach(function (key, conn) {
+                                           if (key != connId)
+                                           {
+                                               try {
+                                                   send(conn,
+                                                        { cmd: 'removeUser', data: usr });
+                                               } catch(e) {
+                                                   console.log(e);
+                                               }
+                                           }
+                                       });
+                                   }
+                               });
+        };
 		
 
 // Current user Schema:
@@ -372,6 +374,10 @@ user = {
     data : userInfo data { id, name, email, lat, lng, picUrl }
 }
 */
+    
+    function send(conn, envelope) {
+        conn.sendUTF(JSON.stringify(envelope));
+    }
      
     var protocol = new Collection({ userLogin: onUserLogin,
                                     userLogOut: onUserLogout,
@@ -454,15 +460,15 @@ user = {
             } else {
                 console.log("onGetUserSettings, User with id " + userId + " found");
                 // return all the user settings
-				var usr = getUserLong(user);
-				var json = JSON.stringify({ cmd: 'getUserSettings', data: usr });
-				connections.item(connectionId).sendUTF(json);
+                var usr = getUserLong(user);
+                send(connections.item(connectionId),
+                     { cmd: 'getUserSettings', data: usr });
             }
         });
     }
 
     function onSetUserSettings(message) {
-    	var user = message.data;
+        var user = message.data;
         var argQuery = { connectionId: connectionId,
                          pw: user.pw };
         var argUpdate = { $set: { email: user.email.toLowerCase(),
@@ -481,10 +487,9 @@ user = {
             } else {
                 console.log("setUserSettings findAndModify, User with id " + userDb._id + " and PW: " + userDb.pw + " found");
                 var usr = getUserMed(userDb);
-                var json = JSON.stringify({ cmd: 'setUserSettings', data: usr });
                 // broadcast message to all connected clients
                 connections.forEach(function (key, conn) {
-                    conn.sendUTF(json);
+                    send(conn, { cmd: 'setUserSettings', data: usr });
                 });
             }
         });
@@ -506,14 +511,14 @@ user = {
                     console.log("Chat entry not saved");
             });
             var usr = getUserMed(user);
-            var jsonMsg = JSON.stringify({ cmd: 'userMessage',
-                                           data: { missive: message.data.value,
-                                                   user: usr
-                                                 }
-                                         });
             // broadcast message to all connected clients
             connections.forEach(function (key, conn) {
-                conn.sendUTF(jsonMsg);
+                send(conn,
+                     { cmd: 'userMessage',
+                       data: { missive: message.data.value,
+                               user: usr
+                             }
+                     });
             });
         }
     }
@@ -533,23 +538,31 @@ user = {
                     console.log('Successfully uploaded image' );
                     console.log('return response');
                     var url = 'https://s3.amazonaws.com/zeitgeistmedia/' + fileKey;
-                    connection.sendUTF(JSON.stringify({ type: 'importImage', url:url, latlng: latlng, fileKey: fileKey }));
+                    send(connection,
+                         { type: 'importImage',
+                           url: url,
+                           latlng: latlng,
+                           fileKey: fileKey 
+                         });
                 });
             });
         });
     }
     
     function onGetChatHistoryReq(message) {
-		var projections =  { _id: 0, userId: 1, name: 1, msg: 1, timeStamp: 1 };	
-		db.chats.find( {}, projections, {limit: 100 }, function(err, chats) {
-			if( err || !chats) {			// err, user not found
-				console.log("onGetChatHistoryReq failed");
-			}
-			else {				
-    			connection.sendUTF(JSON.stringify({ cmd: 'chatHistory', value: chats }));
-			}
-		});
-    }
+        var projections =  { _id: 0, userId: 1, name: 1, msg: 1, timeStamp: 1 };
+        db.chats.find({}, projections,
+                      { limit: 100 },
+                      function(err, chats) {
+                          if (err || !chats) {                  // err, user not found
+                              console.log("onGetChatHistoryReq failed");
+                          }
+                          else {
+                              send(connection,
+                                   { cmd: 'chatHistory', value: chats });
+                          }
+                      });
+        }
 
     connection.on('message', function (message) {
         if (message.type === 'utf8') { // accept only text
