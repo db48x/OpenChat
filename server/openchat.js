@@ -266,7 +266,7 @@ wsServer.on('request', function (request) {
                        else {                   
                            console.log("broadcastOnlineUsers, found " + users.length + " online users.");
                            //console.log("getOnlineUsers, found users:" + JSON.stringify(users));
-                           send(connection, { cmd: 'users', data: users });
+                           send(connection, 'users', users);
                        }
                    });
      })();
@@ -291,21 +291,17 @@ wsServer.on('request', function (request) {
             loggedOn = true;
             // send userLogin only to current client
             sendTo(connId,
-                   { cmd: 'userLogin',
-                     data: { status: loginMsg,
-                             user: usr
-                           }
+                   'userLogin',
+                   { status: loginMsg,
+                     user: usr
                    });
             // broadcast addUser message to all other clients
-            broadcast({ cmd: 'addUser',
-                        data: usr },
-                      connId);
+            broadcast('addUser', usr, connId);
         }
         else {  // user login failed
             sendTo(connectionId,
-                   { cmd: 'userLogin',
-                     data: { status: loginMsg }
-                   });
+                   'userLogin',
+                   { status: loginMsg });
         }
     };
 
@@ -324,15 +320,12 @@ wsServer.on('request', function (request) {
                                        var usr = getUserShort(user);
                                        // send userLogin only to current client
                                        try {
-                                           sendTo(connId,
-                                                  { cmd: 'userLogOut', data: usr });
+                                           sendTo(connId, 'userLogOut', usr);
                                        } catch(e) {
                                            console.log(e);
                                        }
                                        // broadcast removeUser message to all other clients
-                                       broadcast({ cmd: 'removeUser',
-                                                   data: usr },
-                                                 connId);
+                                       broadcast('removeUser', usr, connId);
                                    }
                                });
         };
@@ -367,20 +360,22 @@ user = {
 }
 */
     
-    function send(conn, envelope) {
-        conn.sendUTF(JSON.stringify(envelope));
+    function send(conn, command, payload) {
+        conn.sendUTF(JSON.stringify({ cmd: command,
+                                      data: payload
+                                    }));
     }
     
-    function sendTo(connid, envelope) {
-        send(connections.item(connid), envelope);
+    function sendTo(connid, command, payload) {
+        send(connections.item(connid), command, payload);
     }
     
-    function broadcast(envelope, except) {
+    function broadcast(command, payload, except) {
         connections.forEach(function (key, conn) {
                                 if (key === except)
                                     return;
                                 try {
-                                    send(conn, envelope);
+                                    send(conn, command, payload);
                                 } catch(e) {
                                     console.log(e);
                                 }
@@ -469,8 +464,7 @@ user = {
                 console.log("onGetUserSettings, User with id " + userId + " found");
                 // return all the user settings
                 var usr = getUserLong(user);
-                sendTo(connectionId,
-                       { cmd: 'getUserSettings', data: usr });
+                sendTo(connectionId, 'getUserSettings', usr);
             }
         });
     }
@@ -496,8 +490,7 @@ user = {
                 console.log("setUserSettings findAndModify, User with id " + userDb._id + " and PW: " + userDb.pw + " found");
                 var usr = getUserMed(userDb);
                 // broadcast message to all connected clients
-                broadcast({ cmd: 'setUserSettings',
-                            data: usr });
+                broadcast('setUserSettings', usr);
             }
         });
     }
@@ -519,10 +512,9 @@ user = {
             });
             var usr = getUserMed(user);
             // broadcast message to all connected clients
-            broadcast({ cmd: 'userMessage',
-                        data: { missive: message.data.value,
-                                user: usr
-                              }
+            broadcast('userMessage',
+                      { missive: message.data.value,
+                        user: usr
                       });
         }
     }
@@ -543,12 +535,11 @@ user = {
                     console.log('return response');
                     var url = 'https://s3.amazonaws.com/zeitgeistmedia/' + fileKey;
                     send(connection,
-                         { cmd: 'importImage',
-                           data: { url: url,
-                                   latlng: latlng,
-                                   fileKey: fileKey 
-                                 }
-                           });
+                         'importImage',
+                         { url: url,
+                           latlng: latlng,
+                           fileKey: fileKey 
+                         });
                 });
             });
         });
@@ -564,8 +555,8 @@ user = {
                           }
                           else {
                               send(connection,
-                                   { cmd: 'chatHistory',
-                                     data: chats });
+                                   'chatHistory',
+                                    chats);
                           }
                       });
         }
