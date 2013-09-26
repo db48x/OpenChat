@@ -248,6 +248,28 @@ wsServer.on('request', function (request) {
     console.log((new Date()) + 'Yo, we have a connection!');    
     connections.add(connectionId, connection);
     
+    function send(conn, command, payload) {
+        conn.sendUTF(JSON.stringify({ cmd: command,
+                                      data: payload
+                                    }));
+    }
+    
+    function sendTo(connid, command, payload) {
+        send(connections.item(connid), command, payload);
+    }
+    
+    function broadcast(command, payload, except) {
+        connections.forEach(function (key, conn) {
+                                if (key === except)
+                                    return;
+                                try {
+                                    send(conn, command, payload);
+                                } catch(e) {
+                                    console.log(e);
+                                }
+                            });
+    }
+     
     // send back chat history
 //    if (chathistory.length > 0) {
 //        console.log('Send the chat history');
@@ -360,28 +382,6 @@ user = {
 }
 */
     
-    function send(conn, command, payload) {
-        conn.sendUTF(JSON.stringify({ cmd: command,
-                                      data: payload
-                                    }));
-    }
-    
-    function sendTo(connid, command, payload) {
-        send(connections.item(connid), command, payload);
-    }
-    
-    function broadcast(command, payload, except) {
-        connections.forEach(function (key, conn) {
-                                if (key === except)
-                                    return;
-                                try {
-                                    send(conn, command, payload);
-                                } catch(e) {
-                                    console.log(e);
-                                }
-                            });
-    }
-     
     var protocol = new Collection({ userLogin: onUserLogin,
                                     userLogOut: onUserLogout,
                                     getUserSettings: onGetUserSettings,
