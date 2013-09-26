@@ -154,7 +154,7 @@ $(function () {
 			*/
 	    });
 	    map.on('locationerror', function(e){
-	        console.log(e.message);
+	        console.log("locationerror: "+ e.message);
 	    });
 
 	    map.on('click', function (e) {
@@ -173,6 +173,8 @@ $(function () {
 	
 	// start class BinaryUpload
 	function BinaryUpload() {
+        if (typeof BinaryClient === "undefined")
+            return;
 		var uri = URI_WEBSOCKET + ':1338/binary-endpoint';
 	    var client = new BinaryClient(uri);
 	    
@@ -288,6 +290,7 @@ $(function () {
             input.removeAttr('disabled').focus();
 
 	    this.send = function (json, cb) {
+            console.log("sending message: "+ JSON.stringify(json));
 		//var json = JSON.stringify({ imageData: data });
 		this.callback = cb;
 		connection.send(json);
@@ -316,12 +319,11 @@ $(function () {
 	        var json = '';
                 try {
                     json = JSON.parse(message.data);
-                    console.log(JSON.stringify(json));
+                    console.log("recieved message: "+ message.data);
                 } catch (e) {
                     console.log('This doesn\'t look like a valid JSON: ', message.data);
                     return;
                 }
-                console.log(json.cmd);
                 var func;
                 if ((func = protocol.item(json.cmd)))
                     func(json);
@@ -429,7 +431,7 @@ $(function () {
 	}
 	
 	// start FeatherEditor
-    var featherEditor = new Aviary.Feather({
+    var featherEditor = (typeof Aviary !== "undefined") && new Aviary.Feather({
         apiKey: '1234567',
         apiVersion: 2,
         tools: ['crop', 'orientation', 'brightness', 'contrast', 'saturation', 'warmth', 'stickers', 'enhance', 'text'],
@@ -457,10 +459,9 @@ $(function () {
         postUrl: 'http://example.com/featherposturl'
     });
     window.launchEditor = function (id, src) {
-        featherEditor.launch({
-            image: id,
-            url: src
-        });
+        featherEditor && featherEditor.launch({ image: id,
+                                                url: src
+                                              });
         return false;
     };
 	// end FeatherEditor
@@ -613,6 +614,8 @@ $(function () {
 	
 	// start class filepicker
 	function FilePickerIO() {
+        if (typeof filepicker === "undefined")
+            return;
 		filepicker.setKey('A9Vk0HCS9ScAhfDSsCZKgz');
 		
 		this.showDialog = function() {
@@ -688,12 +691,19 @@ $(function () {
 	 		server.send(json, callback);
 		}
 		
-		if(CURRENTPOS.lat == 0 && CURRENTPOS.lng == 0) {
-			navigator.geolocation.getCurrentPosition(function (position) {
-				CURRENTPOS.lat = position.coords.latitude;
-				CURRENTPOS.lng = position.coords.longitude;
-				sendLogin();
-			});	
+		if (CURRENTPOS.lat == 0 && CURRENTPOS.lng == 0) {
+			//navigator.geolocation
+            //         .getCurrentPosition(function (position) {
+			//                                 CURRENTPOS.lat = position.coords.latitude;
+			//	                             CURRENTPOS.lng = position.coords.longitude;
+			//	                             sendLogin();
+			//                             },
+            //                             function (e) {
+            //                                 sendLogin();
+            //                             });
+            CURRENTPOS.lat = 0;
+	        CURRENTPOS.lng = 0;
+            sendLogin();
 		} else {
 			sendLogin();
 		}
