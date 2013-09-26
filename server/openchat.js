@@ -290,22 +290,18 @@ wsServer.on('request', function (request) {
             var usr = getUserMed(user);
             loggedOn = true;
             // send userLogin only to current client
-            send(connections.item(connId),
-                { cmd: 'userLogin',
-                  value: loginMsg,
-                  data: usr });
+            sendTo(connId,
+                   { cmd: 'userLogin',
+                     value: loginMsg,
+                     data: usr });
             // broadcast addUser message to all other clients
-            connections.forEach(function (key, conn) {
-                console.log('connections.forEach key: ' + key);
-                    if (key != connId)
-                        send(conn,
-                             { cmd: 'addUser',
-                               data: usr });
-            });
+            broadcast({ cmd: 'addUser',
+                        data: usr },
+                      connId);
         }
         else {  // user login failed
-            send(connections.item(connectionId),
-                 { cmd: 'userLogin', value: loginMsg });
+            sendTo(connectionId,
+                   { cmd: 'userLogin', value: loginMsg });
         }
     };
 
@@ -324,23 +320,15 @@ wsServer.on('request', function (request) {
                                        var usr = getUserShort(user);
                                        // send userLogin only to current client
                                        try {
-                                           send(connections.item(connId),
-                                                { cmd: 'userLogOut', data: usr });
+                                           sendTo(connId,
+                                                  { cmd: 'userLogOut', data: usr });
                                        } catch(e) {
                                            console.log(e);
                                        }
                                        // broadcast removeUser message to all other clients
-                                       connections.forEach(function (key, conn) {
-                                           if (key != connId)
-                                           {
-                                               try {
-                                                   send(conn,
-                                                        { cmd: 'removeUser', data: usr });
-                                               } catch(e) {
-                                                   console.log(e);
-                                               }
-                                           }
-                                       });
+                                       broadcast({ cmd: 'removeUser',
+                                                   data: usr },
+                                                 connId);
                                    }
                                });
         };
@@ -377,6 +365,22 @@ user = {
     
     function send(conn, envelope) {
         conn.sendUTF(JSON.stringify(envelope));
+    }
+    
+    function sendTo(connid, envelope) {
+        send(connections.item(connid), envelope);
+    }
+    
+    function broadcast(envelope, except) {
+        connections.forEach(function (key, conn) {
+                                if (key === except)
+                                    return;
+                                try {
+                                    send(conn, envelope);
+                                } catch(e) {
+                                    console.log(e);
+                                }
+                            });
     }
      
     var protocol = new Collection({ userLogin: onUserLogin,
@@ -461,8 +465,8 @@ user = {
                 console.log("onGetUserSettings, User with id " + userId + " found");
                 // return all the user settings
                 var usr = getUserLong(user);
-                send(connections.item(connectionId),
-                     { cmd: 'getUserSettings', data: usr });
+                sendTo(connectionId,
+                       { cmd: 'getUserSettings', data: usr });
             }
         });
     }
@@ -488,9 +492,8 @@ user = {
                 console.log("setUserSettings findAndModify, User with id " + userDb._id + " and PW: " + userDb.pw + " found");
                 var usr = getUserMed(userDb);
                 // broadcast message to all connected clients
-                connections.forEach(function (key, conn) {
-                    send(conn, { cmd: 'setUserSettings', data: usr });
-                });
+                broadcast({ cmd: 'setUserSettings',
+                            data: usr });
             }
         });
     }
@@ -512,14 +515,11 @@ user = {
             });
             var usr = getUserMed(user);
             // broadcast message to all connected clients
-            connections.forEach(function (key, conn) {
-                send(conn,
-                     { cmd: 'userMessage',
-                       data: { missive: message.data.value,
-                               user: usr
-                             }
-                     });
-            });
+            broadcast({ cmd: 'userMessage',
+                        data: { missive: message.data.value,
+                                user: usr
+                              }
+                      });
         }
     }
 
