@@ -720,7 +720,7 @@ $(function () {
 
 				if ( bValid ) {
 					loginUser($("#email").val(), $("#password").val(), $("#userImage").val(), function(json){	
-						if(json.cmd == "userLogin" && (json.value == "success" || json.value == "successNew"))
+						if(json.cmd == "userLogin" && (json.data.status == "success" || json.data.status == "successNew"))
 						{
 							console.log('user login success here! :'+ json);
 							

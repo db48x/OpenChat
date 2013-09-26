@@ -292,8 +292,10 @@ wsServer.on('request', function (request) {
             // send userLogin only to current client
             sendTo(connId,
                    { cmd: 'userLogin',
-                     value: loginMsg,
-                     data: usr });
+                     data: { status: loginMsg,
+                             user: usr
+                           }
+                   });
             // broadcast addUser message to all other clients
             broadcast({ cmd: 'addUser',
                         data: usr },
@@ -301,7 +303,9 @@ wsServer.on('request', function (request) {
         }
         else {  // user login failed
             sendTo(connectionId,
-                   { cmd: 'userLogin', value: loginMsg });
+                   { cmd: 'userLogin',
+                     data: { status: loginMsg }
+                   });
         }
     };
 
