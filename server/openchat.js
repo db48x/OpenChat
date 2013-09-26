@@ -246,24 +246,33 @@ wsServer.on('request', function (request) {
     // create a connectionId and store it in the connections collection
     var connectionId = db.ObjectId();
     console.log((new Date()) + 'Yo, we have a connection!');    
-    connections.add(connectionId, connection);
-    
-    function send(conn, command, payload) {
-        conn.sendUTF(JSON.stringify({ cmd: command,
-                                      data: payload
-                                    }));
+    connections.add(connectionId, { connection: connection,
+                                    currentSequence: -1
+                                  });
+
+    function getConnection(connectionId) {
+        var entry = connections.item(connectionId);
+        return entry && entry.connection;
     }
     
-    function sendTo(connid, command, payload) {
-        send(connections.item(connid), command, payload);
+    function getNextSequence(connectionId) {
+        var entry = connections.item(connectionId);
+        return entry.currentSequence += 1;
     }
     
+    function send(connectionId, command, payload) {
+        getConnection(connectionId).sendUTF(JSON.stringify({ cmd: command,
+                                                             data: payload,
+                                                             sequence: getNextSequence(connectionId)
+                                                           }));
+    }
+
     function broadcast(command, payload, except) {
-        connections.forEach(function (key, conn) {
-                                if (key === except)
+        connections.forEach(function (connectionId, entry) {
+                                if (connectionId === except)
                                     return;
                                 try {
-                                    send(conn, command, payload);
+                                    send(connectionId, command, payload);
                                 } catch(e) {
                                     console.log(e);
                                 }
@@ -288,7 +297,7 @@ wsServer.on('request', function (request) {
                        else {                   
                            console.log("broadcastOnlineUsers, found " + users.length + " online users.");
                            //console.log("getOnlineUsers, found users:" + JSON.stringify(users));
-                           send(connection, 'users', users);
+                           send(connectionId, 'users', users);
                        }
                    });
      })();
@@ -312,18 +321,18 @@ wsServer.on('request', function (request) {
             var usr = getUserMed(user);
             loggedOn = true;
             // send userLogin only to current client
-            sendTo(connId,
-                   'userLogin',
-                   { status: loginMsg,
-                     user: usr
-                   });
+            send(connId,
+                 'userLogin',
+                 { status: loginMsg,
+                   user: usr
+                 });
             // broadcast addUser message to all other clients
             broadcast('addUser', usr, connId);
         }
         else {  // user login failed
-            sendTo(connectionId,
-                   'userLogin',
-                   { status: loginMsg });
+            send(connectionId,
+                 'userLogin',
+                 { status: loginMsg });
         }
     };
 
@@ -342,7 +351,7 @@ wsServer.on('request', function (request) {
                                        var usr = getUserShort(user);
                                        // send userLogin only to current client
                                        try {
-                                           sendTo(connId, 'userLogOut', usr);
+                                           send(connId, 'userLogOut', usr);
                                        } catch(e) {
                                            console.log(e);
                                        }
@@ -456,7 +465,7 @@ user = {
         var userId = message.data._id;
         // try to find the user in the database
         db.users.findOne({connectionId: connectionId}, function(err, user) {
-            if(err || !user) {                  // err, user not found
+            if (err || !user) {                  // err, user not found
                 console.log("onGetUserSettings, User with id " + userId + " not found");
             } else if (user._id != userId) {
                 console.log("onGetUserSettings, hacker alert! userId spoofed");
@@ -464,7 +473,7 @@ user = {
                 console.log("onGetUserSettings, User with id " + userId + " found");
                 // return all the user settings
                 var usr = getUserLong(user);
-                sendTo(connectionId, 'getUserSettings', usr);
+                send(connectionId, 'getUserSettings', usr);
             }
         });
     }
@@ -534,7 +543,7 @@ user = {
                     console.log('Successfully uploaded image' );
                     console.log('return response');
                     var url = 'https://s3.amazonaws.com/zeitgeistmedia/' + fileKey;
-                    send(connection,
+                    send(connectionId,
                          'importImage',
                          { url: url,
                            latlng: latlng,
@@ -554,7 +563,7 @@ user = {
                               console.log("onGetChatHistoryReq failed");
                           }
                           else {
-                              send(connection,
+                              send(connectionId,
                                    'chatHistory',
                                     chats);
                           }
