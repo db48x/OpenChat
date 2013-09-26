@@ -539,11 +539,12 @@ user = {
                     console.log('return response');
                     var url = 'https://s3.amazonaws.com/zeitgeistmedia/' + fileKey;
                     send(connection,
-                         { type: 'importImage',
-                           url: url,
-                           latlng: latlng,
-                           fileKey: fileKey 
-                         });
+                         { cmd: 'importImage',
+                           data: { url: url,
+                                   latlng: latlng,
+                                   fileKey: fileKey 
+                                 }
+                           });
                 });
             });
         });

@@ -389,8 +389,8 @@ $(function () {
             function importImage(json) {
                 console.log(JSON.stringify(json));
                 // add marker todo
-                var picLoc = new L.LatLng(json.latlng.lat, json.latlng.lng);
-                lmap.addImageMarker(picLoc, '', json.url, json.data);
+                var picLoc = new L.LatLng(json.data.latlng.lat, json.data.latlng.lng);
+                lmap.addImageMarker(picLoc, '', json.data.url, json.data.fileKey);
             }
             
             function getUserSettings(json) {
