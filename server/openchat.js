@@ -512,7 +512,7 @@ user = {
             var chatEntry = { channelId: 1,
                               userId: new ObjectId(user._id),
                               name: user.name,
-                              msg: message.data.value,
+                              msg: message.data.missive,
                               timeStamp: (new Date()).toJSON()
                             };
             db.chats.save(chatEntry, function(err, saved) {
@@ -522,7 +522,7 @@ user = {
             var usr = getUserMed(user);
             // broadcast message to all connected clients
             broadcast('userMessage',
-                      { missive: message.data.value,
+                      { missive: message.data.missive,
                         user: usr
                       });
         }
