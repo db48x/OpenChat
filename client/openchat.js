@@ -293,12 +293,16 @@ $(function () {
 		connection.send(json);
 	    };
 		
-            this.chatMessage = function(msg) {
-		// TODO instead of getUserMed send getUserShort and use the cached user data.
-		var json = JSON.stringify({ cmd: 'userMessage', value: msg , data: getUserMed(CURRENTUSER)});
-		// send the message
-		connection.send(json);
-	    };
+            this.chatMessage = function (msg) {
+                // TODO instead of getUserMed send getUserShort and use the cached user data.
+                var json = JSON.stringify({ cmd: 'userMessage',
+                                            data: { missive: msg,
+                                                    user: getUserMed(CURRENTUSER)
+                                                  }
+                                          });
+                // send the message
+                connection.send(json);
+            };
 		
 	    connection.onopen = function () {
 		console.log('connection.onopen');
@@ -368,19 +372,19 @@ $(function () {
             }
 	    
             function userMessage(json) {
-	        var locOriginator = new L.LatLng(json.data.lat, json.data.lng);
-	        lmap.showOriginatorLoc(locOriginator);
-	                
-	        // animation: loop through the users and show how the message is spread
-	        for (var key in UserMarkers) {
-	            if(key != undefined)
-	            {
-	                var obj = UserMarkers[key];
-	               	lmap.showBezierAnim(locOriginator, obj._latlng);
-	            }
-	        }
-	        addChatMessage(json.data.name, json.value, json.data.userImageUrl);
-	    }
+                var locOriginator = new L.LatLng(json.data.user.lat, json.data.user.lng);
+                lmap.showOriginatorLoc(locOriginator);
+                        
+                // animation: loop through the users and show how the message is spread
+                for (var key in UserMarkers) {
+                    if (key != undefined)
+                    {
+                        var obj = UserMarkers[key];
+                        lmap.showBezierAnim(locOriginator, obj._latlng);
+                    }
+                }
+                addChatMessage(json.data.user.name, json.data.missive, json.data.user.userImageUrl);
+            }
             
             function importImage(json) {
                 console.log(JSON.stringify(json));

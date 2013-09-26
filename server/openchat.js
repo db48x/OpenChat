@@ -492,21 +492,25 @@ user = {
 
     function onUserChat(message) {
         if (loggedOn) {
-        	var user = message.data;
-            console.log((new Date()) + ' Received Message from ' + message.data.name + ': ' + message.value);
-			// store the data in the chats table
-	        var chatEntry = { channelId: 1,
-	                     userId: new ObjectId(user._id),
-	                     name: user.name,
-	                     msg: message.value,
-	                     timeStamp: (new Date()).toJSON()
-	                   };
-	        db.chats.save(chatEntry, function(err, saved) {
-	            if(err || !saved)
-	                console.log("Chat entry not saved");
-	        });
+            var user = message.data.user;
+            console.log((new Date()) + ' Received Message from ' + user.name + ': ' + message.data.missive);
+            // store the data in the chats table
+            var chatEntry = { channelId: 1,
+                              userId: new ObjectId(user._id),
+                              name: user.name,
+                              msg: message.data.value,
+                              timeStamp: (new Date()).toJSON()
+                            };
+            db.chats.save(chatEntry, function(err, saved) {
+                if (err || !saved)
+                    console.log("Chat entry not saved");
+            });
             var usr = getUserMed(user);
-            var jsonMsg = JSON.stringify({ cmd: 'userMessage', value: message.value, data: usr });
+            var jsonMsg = JSON.stringify({ cmd: 'userMessage',
+                                           data: { missive: message.data.value,
+                                                   user: usr
+                                                 }
+                                         });
             // broadcast message to all connected clients
             connections.forEach(function (key, conn) {
                 conn.sendUTF(jsonMsg);
