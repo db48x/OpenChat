@@ -403,11 +403,12 @@ $(function () {
             }
 
 	    function chatHistory(json) {
-                console.log(json);
-		for (var i = 0; i < json.value.length; i++ ) { 
-              	    addChatMessage(json.value[i].name, json.value[i].msg, USERIMAGEURL + json.value[i].userId, 0);
-                }
+            console.log(json);
+		    for (var i = 0; i < json.data.length; i++ ) { 
+                var message = json.data[i];
+                addChatMessage(message.name, message.msg, USERIMAGEURL + message.userId, 0);
             }
+        }
 	}
 	// end class ServerConnection
 	var server = new ServerConnection();

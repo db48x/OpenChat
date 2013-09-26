@@ -564,7 +564,8 @@ user = {
                           }
                           else {
                               send(connection,
-                                   { cmd: 'chatHistory', value: chats });
+                                   { cmd: 'chatHistory',
+                                     data: chats });
                           }
                       });
         }
