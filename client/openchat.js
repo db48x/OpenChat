@@ -289,8 +289,16 @@ $(function () {
         var input = $('#input');
         input.removeAttr('disabled').focus();
 
+        var getNextSequence = (function () {
+                                   var current = -1;
+                                   return function () { return current += 1; };
+                               })();
+        
         this.send = function (command, payload, cb) {
-            var envelope = JSON.stringify({ cmd: command, data: payload });
+            var envelope = JSON.stringify({ cmd: command,
+                                            data: payload,
+                                            currentSequence: getNextSequence()
+                                          });
             console.log("sending message: "+ envelope);
             this.callback = cb;
             connection.send(envelope);
