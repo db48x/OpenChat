@@ -261,10 +261,12 @@ wsServer.on('request', function (request) {
     }
     
     function send(connectionId, command, payload) {
-        getConnection(connectionId).sendUTF(JSON.stringify({ cmd: command,
-                                                             data: payload,
-                                                             sequence: getNextSequence(connectionId)
-                                                           }));
+        var envelope = JSON.stringify({ cmd: command,
+                                        data: payload,
+                                        sequence: getNextSequence(connectionId)
+                                      });
+        console.log("sending message: "+ envelope);
+        getConnection(connectionId).sendUTF(envelope);
     }
 
     function broadcast(command, payload, except) {
@@ -572,14 +574,14 @@ user = {
 
     connection.on('message', function (message) {
         if (message.type === 'utf8') { // accept only text
-            var json = JSON.parse(message.utf8Data);
-            var cmd;
-            if ((cmd = protocol.item(json.cmd))) {
-                // console.log(json);
-                cmd(json);
+            console.log("received message: "+ message.utf8Data);
+            var envelope = JSON.parse(message.utf8Data);
+            var func;
+            if ((func = protocol.item(envelope.cmd))) {
+                func(envelope);
             }
             else
-                console.log("unknown command: "+ json.cmd +"["+ protocol.keys() +"]");
+                console.log("unknown command: "+ envelope.cmd +"["+ protocol.keys() +"]");
         }
     });
 
