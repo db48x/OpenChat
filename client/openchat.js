@@ -267,153 +267,150 @@ $(function () {
 	// end class Hash
 	var hash = new Hash();
 	
-	// start class ServerConnection
-	function ServerConnection() {
-            var protocol = new Collection({userLogin: userLogin,
-                                           userLogOut: userLogOut,
-                                           addUser: addUser,
-                                           removeUser: removeUser,
-                                           users: users,
-                                           userMessage: userMessage,
-                                           importImage: importImage,
-                                           getUserSettings: getUserSettings,
-                                           setUserSettings: setUserSettings,
-                                           chatHistory: chatHistory
-                                          });
+    // start class ServerConnection
+    function ServerConnection() {
+        var protocol = new Collection({userLogin: userLogin,
+                                       userLogOut: userLogOut,
+                                       addUser: addUser,
+                                       removeUser: removeUser,
+                                       users: users,
+                                       userMessage: userMessage,
+                                       importImage: importImage,
+                                       getUserSettings: getUserSettings,
+                                       setUserSettings: setUserSettings,
+                                       chatHistory: chatHistory
+                                      });
 
-	    // constructor code
-	    var _this = this;
-	    var uri = URI_WEBSOCKET + ':1337';
-            var connection = new WebSocket(uri);
-	    this.callback = {};
-            var input = $('#input');
-            input.removeAttr('disabled').focus();
+        // constructor code
+        var _this = this;
+        var uri = URI_WEBSOCKET + ':1337';
+        var connection = new WebSocket(uri);
+        this.callback = {};
+        var input = $('#input');
+        input.removeAttr('disabled').focus();
 
-	    this.send = function (json, cb) {
-            console.log("sending message: "+ JSON.stringify(json));
-		//var json = JSON.stringify({ imageData: data });
-		this.callback = cb;
-		connection.send(json);
-	    };
-		
-            this.chatMessage = function (msg) {
-                // TODO instead of getUserMed send getUserShort and use the cached user data.
-                var json = JSON.stringify({ cmd: 'userMessage',
-                                            data: { missive: msg,
-                                                    user: getUserMed(CURRENTUSER)
-                                                  }
-                                          });
-                // send the message
-                connection.send(json);
-            };
-		
-	    connection.onopen = function () {
-		console.log('connection.onopen');
-	    };
-	    
-	    connection.onerror = function (error) {
-	        console.log('Sorry, but there\'s some problem connecting to the server.</p>');
-	    };
-	    
-            connection.onmessage = function (message) {
-	        var json = '';
-                try {
-                    json = JSON.parse(message.data);
-                    console.log("recieved message: "+ message.data);
-                } catch (e) {
-                    console.log('This doesn\'t look like a valid JSON: ', message.data);
-                    return;
+        this.send = function (command, payload, cb) {
+            var envelope = JSON.stringify({ cmd: command, data: payload });
+            console.log("sending message: "+ envelope);
+            this.callback = cb;
+            connection.send(envelope);
+        };
+
+        this.chatMessage = function (msg) {
+            // TODO instead of getUserMed send getUserShort and use the cached user data.
+            this.send('userMessage',
+                      { missive: msg,
+                        user: getUserMed(CURRENTUSER)
+                      });
+        };
+
+        connection.onopen = function () {
+            console.log('connection.onopen');
+        };
+
+        connection.onerror = function (error) {
+            console.log('Sorry, but there\'s some problem connecting to the server.</p>');
+        };
+
+        connection.onmessage = function (message) {
+        var json = '';
+            try {
+                json = JSON.parse(message.data);
+                console.log("recieved message: "+ message.data);
+            } catch (e) {
+                console.log('This doesn\'t look like a valid JSON: ', message.data);
+                return;
+            }
+            var func;
+            if ((func = protocol.item(json.cmd)))
+                func(json);
+            if (typeof(_this.callback) == 'function')
+                _this.callback(json);
+        };
+
+        input.keydown(function (e) {
+                          if (e.keyCode === 13) {
+                              var msg = $(this).val();
+                              if (!msg) {
+                                  return;
+                              }
+                          }
+                      });
+
+        function userLogin(json) {
+        }
+
+        function userLogOut(json) {
+            console.log('userLogOut: ' + json.data._id);
+            clearCurrentUser();
+            localStorage.setItem('authenticated', 'false');
+            $("#txtLoginName").text("Not Logged In");
+            // remove my marker
+            lmap.removeUserMarker(json.data._id);
+        }
+
+        function addUser(json) {
+            console.log("onmessage addUser");
+            var locUser = new L.LatLng(json.data.lat, json.data.lng);
+            lmap.addUserMarker(json.data._id, locUser, json.data.name, json.data.email, json.data.userImageUrl);
+        }
+
+        function removeUser(json) {
+            console.log("onmessage removeUser");
+            lmap.removeUserMarker(json.data._id);
+        }
+
+        function users(json) {
+            console.log("onmessage users");
+            console.log(JSON.stringify(json));
+            for (var i = 0; i < json.data.length; i++)
+            {
+                var locUser = new L.LatLng(json.data[i].lat, json.data[i].lng);
+                lmap.addUserMarker(json.data[i]._id, locUser, json.data[i].name, json.data[i].email, json.data[i].userImageUrl);
+            }
+        }
+
+        function userMessage(json) {
+            var locOriginator = new L.LatLng(json.data.user.lat, json.data.user.lng);
+            lmap.showOriginatorLoc(locOriginator);
+
+            // animation: loop through the users and show how the message is spread
+            for (var key in UserMarkers) {
+                if (key != undefined)
+                {
+                    var obj = UserMarkers[key];
+                    lmap.showBezierAnim(locOriginator, obj._latlng);
                 }
-                var func;
-                if ((func = protocol.item(json.cmd)))
-                    func(json);
-                if (typeof(_this.callback) == 'function')
-                    _this.callback(json);
-	    };
+            }
+            addChatMessage(json.data.user.name, json.data.missive, json.data.user.userImageUrl);
+        }
 
-            input.keydown(function (e) {
-                if (e.keyCode === 13) {
-                    var msg = $(this).val();
-                    if (!msg) {
-                        return;
-                    }
-                }
-            });
+        function importImage(json) {
+            console.log(JSON.stringify(json));
+            // add marker todo
+            var picLoc = new L.LatLng(json.data.latlng.lat, json.data.latlng.lng);
+            lmap.addImageMarker(picLoc, '', json.data.url, json.data.fileKey);
+        }
 
-            function userLogin(json) {
-            }
-            
-            function userLogOut(json) {
-                console.log('userLogOut: ' + json.data._id);
-	        clearCurrentUser();
-		localStorage.setItem('authenticated', 'false');		
-                $("#txtLoginName").text("Not Logged In");
-                // remove my marker
-                lmap.removeUserMarker(json.data._id);
-	    }
-            
-            function addUser(json) {
-                console.log("onmessage addUser");          
-                var locUser = new L.LatLng(json.data.lat, json.data.lng);
-                    lmap.addUserMarker(json.data._id, locUser, json.data.name, json.data.email, json.data.userImageUrl);  
-                }
-	    
-            function removeUser(json) {
-                console.log("onmessage removeUser");
-                lmap.removeUserMarker(json.data._id);
-	    }
-            
-            function users(json) {
-                console.log("onmessage users");
-                console.log(JSON.stringify(json));
- 		for (var i = 0; i < json.data.length; i++) 
- 		{	
- 		    var locUser = new L.LatLng(json.data[i].lat, json.data[i].lng);
-            	    lmap.addUserMarker(json.data[i]._id, locUser, json.data[i].name, json.data[i].email, json.data[i].userImageUrl);  
- 		}
-            }
-	    
-            function userMessage(json) {
-                var locOriginator = new L.LatLng(json.data.user.lat, json.data.user.lng);
-                lmap.showOriginatorLoc(locOriginator);
-                        
-                // animation: loop through the users and show how the message is spread
-                for (var key in UserMarkers) {
-                    if (key != undefined)
-                    {
-                        var obj = UserMarkers[key];
-                        lmap.showBezierAnim(locOriginator, obj._latlng);
-                    }
-                }
-                addChatMessage(json.data.user.name, json.data.missive, json.data.user.userImageUrl);
-            }
-            
-            function importImage(json) {
-                console.log(JSON.stringify(json));
-                // add marker todo
-                var picLoc = new L.LatLng(json.data.latlng.lat, json.data.latlng.lng);
-                lmap.addImageMarker(picLoc, '', json.data.url, json.data.fileKey);
-            }
-            
-            function getUserSettings(json) {
-                console.log('getUserSettings');                	                	
-            }
-            
-            function setUserSettings(json) {
-                console.log('setUserSettings');
-	        refreshUserMarker(json.data);
-            }
+        function getUserSettings(json) {
+            console.log('getUserSettings');
+        }
 
-	    function chatHistory(json) {
+        function setUserSettings(json) {
+            console.log('setUserSettings');
+        refreshUserMarker(json.data);
+        }
+
+        function chatHistory(json) {
             console.log(json);
-		    for (var i = 0; i < json.data.length; i++ ) { 
+            for (var i = 0; i < json.data.length; i++ ) {
                 var message = json.data[i];
                 addChatMessage(message.name, message.msg, USERIMAGEURL + message.userId, 0);
             }
         }
-	}
-	// end class ServerConnection
-	var server = new ServerConnection();
+    }
+    // end class ServerConnection
+    var server = new ServerConnection();
 		
     function addChatMessage(name, chatMessage, userImageUrl, timeout) {
     	if(timeout===undefined) 
@@ -625,8 +622,7 @@ $(function () {
 				filepicker.store(FPFiles, FPFiles.filename,
 				    function(storedPFFiles){
 				        console.log(JSON.stringify(storedPFFiles));
-						var json = JSON.stringify({ cmd: 'importImage', data: storedPFFiles.key });
-						server.send(json);			        
+						server.send('importImage', storedPFFiles.key);
 				    }
 				);    			
 			});
@@ -686,9 +682,8 @@ $(function () {
 		function sendLogin() {
 			CURRENTUSER.lat = CURRENTPOS.lat;
 			CURRENTUSER.lng = CURRENTPOS.lng;
-	        var json = JSON.stringify({cmd: 'userLogin', data: CURRENTUSER});
 			// if valid, send info to the server
-	 		server.send(json, callback);
+	 		server.send('userLogin', CURRENTUSER, callback);
 		}
 		
 		if (CURRENTPOS.lat == 0 && CURRENTPOS.lng == 0) {
@@ -819,17 +814,19 @@ $(function () {
 
 					function updateMarkerAndServer(user)
 					{
-				        var json = JSON.stringify({ cmd: 'setUserSettings', data: user });						
-						server.send(json, function(jsonResp){
-							// check for success
-							if((jsonResp.cmd == "setUserSettings")&&(jsonResp.data._id === CURRENTUSER._id))
-							{
-								var pw = CURRENTUSER.pw;
-								CURRENTUSER = jsonResp.data;
-								CURRENTUSER.pw = pw;
-								$("#txtLoginName").text(CURRENTUSER.name);
-		    				}
-						});	        	
+						server.send('setUserSettings',
+                                    user,
+                                    function (jsonResp) {
+							            // check for success
+							            if ((jsonResp.cmd == "setUserSettings") && 
+                                            (jsonResp.data._id === CURRENTUSER._id))
+							            {
+								            var pw = CURRENTUSER.pw;
+								            CURRENTUSER = jsonResp.data;
+								            CURRENTUSER.pw = pw;
+								            $("#txtLoginName").text(CURRENTUSER.name);
+		    				            }
+						            });
 					}
 
 					// upload the image if we have one							
@@ -867,66 +864,68 @@ $(function () {
 	        },
 	        id: 'dialog_cancel_button'
     	}],
-        open: function() {
-        	userImageFile = undefined;
-        	console.log('dialog settings open function called');		
-			tips.text('Choose Your Pic:');
-   	
-   			// send getUserSettings
-	        var json = JSON.stringify({ cmd: 'getUserSettings', data: CURRENTUSER });
-			server.send(json, function(jsonResp){
-				if(CURRENTUSER._id == jsonResp.data._id) 
-				{
-		        	var user = jsonResp.data;
-					console.log('getUserSettings inside callback, now fill the form');
-		        	var valTransparency = .5;
-		        	// apply them to the dialog
-		        	$("input#userName").val(user.name);
-		        	$("input#userEmail").val(user.email);
-		        	var userImage = $("img#imgUserImage");
-		        	if(user.userImageUrl != "")
-		        	{
-		        		userImage.attr("src", user.userImageUrl+'?burst='+Math.random());
-		        		// TODO the below code doesn't seem to work
-		        		//var txtLaunchEditor = "window.launchEditor('imgUserImage', this.src);"; 	// imgUserImage should be replaced with user._id
-		        		//userImage.on("click", txtLaunchEditor);
-		        	}
-		        	else
-		        	{
-		        		userImage.attr("src", 'https://s3.amazonaws.com/zeitgeistmedia/iconUser.png');
-		        	}
-		        	if(user.windowTransparency) {
-		        		valTransparency = user.windowTransparency;
-		        	}
-		        	$("input#windowTransparency").val(valTransparency);
-					// languages
-					var $languages = $('select#userLanguages');
-					$languages.val(user.languages);
-					$languages.trigger("chosen:updated");
-/*
-					// interests
-					var $interests = $('select#userInterests');
-					$interests.val(user.interests);
-					$interests.trigger("chosen:updated");
-*/		        	
-				}				
-			});
-        	
-            $("input#userImageNew").change(function (e) {
-            	userImageFile = this.files.item(0);
-				imageUtils.loadImage(userImageFile, 200, 200, function(base64){
-					$('img#imgUserImage').attr('src', base64);
-				});
-			});
-            $("input#windowTransparency").on('input', function (e) {
-            	setWindowsTransparency($(this).val());
-			});
-        },    	        
+        open: function () {
+                   userImageFile = undefined;
+                   console.log('dialog settings open function called');        
+                   tips.text('Choose Your Pic:');
+           
+                   // send getUserSettings
+                   server.send('getUserSettings',
+                               CURRENTUSER,
+                               function (jsonResp) {
+                                   if (CURRENTUSER._id == jsonResp.data._id) 
+                                   {
+                                       var user = jsonResp.data;
+                                       console.log('getUserSettings inside callback, now fill the form');
+                                       var valTransparency = .5;
+                                       // apply them to the dialog
+                                       $("input#userName").val(user.name);
+                                       $("input#userEmail").val(user.email);
+                                       var userImage = $("img#imgUserImage");
+                                       if (user.userImageUrl != "")
+                                       {
+                                           userImage.attr("src", user.userImageUrl+'?burst='+Math.random());
+                                           // TODO the below code doesn't seem to work
+                                           //var txtLaunchEditor = "window.launchEditor('imgUserImage', this.src);";
+                                           // imgUserImage should be replaced with user._id
+                                           //userImage.on("click", txtLaunchEditor);
+                                       }
+                                       else
+                                       {
+                                           userImage.attr("src", 'https://s3.amazonaws.com/zeitgeistmedia/iconUser.png');
+                                       }
+                                       if (user.windowTransparency) {
+                                           valTransparency = user.windowTransparency;
+                                       }
+                                       $("input#windowTransparency").val(valTransparency);
+                                       // languages
+                                       var $languages = $('select#userLanguages');
+                                       $languages.val(user.languages);
+                                       $languages.trigger("chosen:updated");
+                                       /*
+                                       // interests
+                                       var $interests = $('select#userInterests');
+                                       $interests.val(user.interests);
+                                       $interests.trigger("chosen:updated");
+                                       */                  
+                                   }               
+                               });
+                   
+                               $("input#userImageNew").change(function (e) {
+                                   userImageFile = this.files.item(0);
+                                   imageUtils.loadImage(userImageFile, 200, 200, function(base64){
+                                       $('img#imgUserImage').attr('src', base64);
+                                   });
+                               });
+                               $("input#windowTransparency").on('input', function (e) {
+                                   setWindowsTransparency($(this).val());
+                               });
+              },
         close: function () {
-        	// clear the values
-        	allFields.val( "" ).removeClass( "ui-state-error" );
-        }
-	});    
+                   // clear the values
+                   allFields.val( "" ).removeClass( "ui-state-error" );
+               }
+    });    
     $('#dialog-settings').parents('.ui-dialog').find('.ui-dialog-buttonpane')
     .prepend('<input type=\'password\' placeholder=\'Current Password\' id=\'passwordSettings\' class=\'dialogTextInput\'/>');
 
@@ -954,13 +953,11 @@ $(function () {
 	        id: 'dialog_send_button'
   		}],
         open: function() {
-        	if(!REQCHATHISTORY) {
-  				var json = JSON.stringify({ cmd: 'getChatHistory'});
-				// send the message
-				server.send(json);
-				REQCHATHISTORY = true;
-			}
-		}
+            if (!REQCHATHISTORY) {
+                server.send('getChatHistory', null);
+                REQCHATHISTORY = true;
+            }
+        }
 	});
     $('#dialog-chat').parents('.ui-dialog').find('.ui-dialog-buttonpane')
     .prepend('<input type=\'text\' id=\'messageInput\' class=\'dialogTextInput\'/>');
@@ -1056,8 +1053,7 @@ $(function () {
     }); 
     $("#btnLogout").button().click(function() {
 		if (verifyLoggedIn()) {
-        	var json = JSON.stringify({ cmd: 'userLogOut' });
-			server.send(json);
+			server.send('userLogOut', null);
 		}
     });      
 	  
